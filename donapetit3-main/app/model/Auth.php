@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../../config/bdconexion.php';
 
 class Auth {
+    
     private $conn;
 
     public function __construct() {
