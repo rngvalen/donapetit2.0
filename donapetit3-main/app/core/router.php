@@ -3,8 +3,22 @@
  * Router principal de la aplicacion DonAppetit.
  */
 
-$controller = $_GET['controller'] ?? 'Home';
-$action = $_GET['action'] ?? 'index';
+$controller = $_GET['controller'] ?? null;
+$action = $_GET['action'] ?? null;
+
+if ($controller === null) {
+    if (!empty($_SESSION['user'])) {
+        $controller = 'Home';
+        $action = $action ?? 'index';
+    } else {
+        $controller = 'Auth';
+        $action = $action ?? 'mostrarLogin';
+    }
+}
+
+if ($action === null) {
+    $action = $controller === 'Auth' ? 'mostrarLogin' : 'index';
+}
 
 $controllerClass = $controller . 'Controller';
 $controllerFile = __DIR__ . '/../controllers/' . $controllerClass . '.php';

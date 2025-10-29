@@ -3,7 +3,7 @@
     $db_server = "localhost";
     $db_user = "root";
     $db_pass = "";
-    $db_name = "donappetit";
+    $db_name = "donapetit";
     $conn = "";
 
     try{

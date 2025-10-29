@@ -12,15 +12,11 @@ if ($menuSections === null) {
         $menuSections = ['Menu' => $menuItems];
     } else {
         $menuSections = [
-            'Usuario' => [
+            'Navegacion' => [
                 ['label' => 'Inicio', 'url' => 'index.php?controller=Home&action=index'],
-                ['label' => 'Mis productos', 'url' => 'index.php?controller=Producto&action=index'],
-                ['label' => 'Registrar disponibilidad', 'url' => 'index.php?controller=Producto&action=create'],
-            ],
-            'Admin' => [
-                ['label' => 'Panel principal', 'url' => 'index.php?controller=Admin&action=principal'],
-                ['label' => 'Catalogo de productos', 'url' => 'index.php?controller=Producto&action=catalogo'],
-                ['label' => 'Estadisticas', 'url' => 'index.php?controller=Home&action=statics'],
+                ['label' => 'Mis productos', 'url' => 'index.php?controller=Producto&action=misProductos'],
+                ['label' => 'Productos disponibles', 'url' => 'index.php?controller=Producto&action=productosDisponibles'],
+                ['label' => 'Mapa', 'url' => ''],
             ],
             'Cuenta' => [
                 ['label' => 'Cerrar sesion', 'url' => 'index.php?controller=Auth&action=logout'],

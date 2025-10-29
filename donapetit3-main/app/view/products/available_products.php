@@ -43,36 +43,42 @@ $titulo = $titulo ?? 'Productos disponibles';
         </div>
     </header>
 
-    <div class="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        <?php foreach ($ofertas as $oferta): ?>
-            <?php
-            $nombre = htmlspecialchars((string)($oferta['nombre'] ?? 'Producto sin nombre'), ENT_QUOTES, 'UTF-8');
-            $origen = htmlspecialchars((string)($oferta['origen'] ?? 'Origen desconocido'), ENT_QUOTES, 'UTF-8');
-            $distancia = htmlspecialchars((string)($oferta['distancia'] ?? 'S/D'), ENT_QUOTES, 'UTF-8');
-            ?>
-            <article class="group flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
-                <div class="mb-4 grid h-32 place-items-center rounded-xl border-2 border-dashed border-slate-200 bg-gradient-to-br from-slate-50 to-white text-slate-400 transition group-hover:from-emerald-50 group-hover:text-emerald-500">
-                    <svg class="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3l2-3h8l2 3h3a2 2 0 0 1 2 2z"></path>
-                        <circle cx="12" cy="13" r="4"></circle>
-                    </svg>
-                </div>
+    <?php if (!empty($ofertas)): ?>
+        <div class="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <?php foreach ($ofertas as $oferta): ?>
+                <?php
+                $nombre = htmlspecialchars((string)($oferta['nombre'] ?? 'Producto sin nombre'), ENT_QUOTES, 'UTF-8');
+                $origen = htmlspecialchars((string)($oferta['origen'] ?? 'Origen desconocido'), ENT_QUOTES, 'UTF-8');
+                $distancia = htmlspecialchars((string)($oferta['distancia'] ?? 'S/D'), ENT_QUOTES, 'UTF-8');
+                ?>
+                <article class="group flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
+                    <div class="mb-4 grid h-32 place-items-center rounded-xl border-2 border-dashed border-slate-200 bg-gradient-to-br from-slate-50 to-white text-slate-400 transition group-hover:from-emerald-50 group-hover:text-emerald-500">
+                        <svg class="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3l2-3h8l2 3h3a2 2 0 0 1 2 2z"></path>
+                            <circle cx="12" cy="13" r="4"></circle>
+                        </svg>
+                    </div>
 
-                <h2 class="text-center text-base font-semibold text-slate-900">
-                    <?php echo $nombre; ?>
-                </h2>
+                    <h2 class="text-center text-base font-semibold text-slate-900">
+                        <?php echo $nombre; ?>
+                    </h2>
 
-                <p class="mt-2 text-center text-sm text-slate-500">
-                    <?php echo $origen; ?>
-                    <span class="font-semibold text-slate-700">&middot; <?php echo $distancia; ?></span>
-                </p>
+                    <p class="mt-2 text-center text-sm text-slate-500">
+                        <?php echo $origen; ?>
+                        <span class="font-semibold text-slate-700">&middot; <?php echo $distancia; ?></span>
+                    </p>
 
-                <div class="mt-5 flex-1"></div>
+                    <div class="mt-5 flex-1"></div>
 
-                <button type="button" class="mt-4 inline-flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-indigo-500/30 transition hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400">
-                    Solicitar
-                </button>
-            </article>
-        <?php endforeach; ?>
-    </div>
+                    <button type="button" class="mt-4 inline-flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-indigo-500/30 transition hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400">
+                        Solicitar
+                    </button>
+                </article>
+            <?php endforeach; ?>
+        </div>
+    <?php else: ?>
+        <div class="mt-6 rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center text-sm text-slate-500">
+            No hay ofertas disponibles por el momento. Vuelve mas tarde para descubrir nuevos productos.
+        </div>
+    <?php endif; ?>
 </section>

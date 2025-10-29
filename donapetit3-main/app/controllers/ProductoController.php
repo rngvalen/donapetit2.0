@@ -62,6 +62,87 @@ class ProductoController extends Controller
     }
 
     /**
+     * Presenta los productos del usuario en formato de tarjetas.
+     *
+     * @return void
+     */
+    public function misProductos(): void
+    {
+        $productosFuente = Producto::all(200, 0);
+        $productos = array_map(
+            function (array $producto): array {
+                $id = null;
+                if (isset($producto['id_producto']) && (int)$producto['id_producto'] > 0) {
+                    $id = (int)$producto['id_producto'];
+                } elseif (isset($producto['id_productos']) && (int)$producto['id_productos'] > 0) {
+                    $id = (int)$producto['id_productos'];
+                }
+
+                $nombre = trim((string)($producto['nom_producto'] ?? ''));
+                $cantidadRaw = $producto['cantidad'] ?? null;
+                $cantidad = null;
+                if ($cantidadRaw !== null && $cantidadRaw !== '') {
+                    $cantidad = is_numeric($cantidadRaw) ? (int)$cantidadRaw : null;
+                }
+
+                $venceRaw = $producto['fecha_vencimiento'] ?? null;
+
+                $links = null;
+                if ($id !== null) {
+                    $idParam = urlencode((string)$id);
+                    $base = 'index.php?controller=Producto&action=';
+                    $links = [
+                        'show' => $base . 'show&id=' . $idParam,
+                        'edit' => $base . 'edit&id=' . $idParam,
+                        'destroy' => $base . 'destroy&id=' . $idParam,
+                    ];
+                }
+
+                return [
+                    'id' => $id,
+                    'nombre' => $nombre !== '' ? $nombre : 'Producto sin nombre',
+                    'cantidad' => $cantidad,
+                    'vence' => $this->formatExpirationLabel($venceRaw),
+                    'links' => $links,
+                ];
+            },
+            $productosFuente
+        );
+
+        $this->render('products.my_products', [
+            'productos' => $productos,
+            'titulo' => 'Mis productos',
+        ]);
+    }
+
+    /**
+     * Lista productos disponibles publicados por otros usuarios.
+     *
+     * @return void
+     */
+    public function productosDisponibles(): void
+    {
+        $productosFuente = Producto::all(200, 0);
+
+        $ofertas = [];
+        foreach ($productosFuente as $index => $producto) {
+            $nombre = trim((string)($producto['nom_producto'] ?? ''));
+            $categoria = trim((string)($producto['categoria'] ?? ''));
+
+            $ofertas[] = [
+                'nombre' => $nombre !== '' ? $nombre : 'Producto sin nombre',
+                'origen' => $categoria !== '' ? $categoria : 'Origen sin especificar',
+                'distancia' => $this->generateDistanceLabel($index),
+            ];
+        }
+
+        $this->render('products.available_products', [
+            'ofertas' => $ofertas,
+            'titulo' => 'Productos disponibles',
+        ]);
+    }
+
+    /**
      * Renderiza el catalogo administrativo con filtros y ordenamientos.
      *
      * @return void
@@ -570,6 +651,51 @@ class ProductoController extends Controller
         );
 
         return $filtrados;
+    }
+
+    /**
+     * Convierte distintos formatos de fecha en una etiqueta amigable.
+     *
+     * @param mixed $fechaRaw Valor almacenado en la base.
+     */
+    private function formatExpirationLabel($fechaRaw): string
+    {
+        if ($fechaRaw === null || $fechaRaw === '') {
+            return 'Sin fecha';
+        }
+
+        if ($fechaRaw instanceof \DateTimeInterface) {
+            return $fechaRaw->format('d/m/Y');
+        }
+
+        $cadena = (string)$fechaRaw;
+        $formatos = ['Y-m-d', 'd/m/Y', 'Y/m/d'];
+
+        foreach ($formatos as $formato) {
+            $fecha = \DateTimeImmutable::createFromFormat($formato, $cadena);
+            if ($fecha instanceof \DateTimeImmutable) {
+                return $fecha->format('d/m/Y');
+            }
+        }
+
+        try {
+            $fecha = new \DateTimeImmutable($cadena);
+            return $fecha->format('d/m/Y');
+        } catch (\Throwable $exception) {
+            return $cadena;
+        }
+    }
+
+    /**
+     * Genera una distancia ficticia en kilometros para mostrar en la vista.
+     */
+    private function generateDistanceLabel(int $index): string
+    {
+        $base = 0.8;
+        $incremento = 0.6;
+        $distancia = $base + ($index % 7) * $incremento;
+
+        return number_format($distancia, 1, '.', '') . ' km';
     }
 
 }
