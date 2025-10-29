@@ -16,7 +16,12 @@ class HomeController extends Controller
      */
     public function index(): void
     {
-        $userName = $_SESSION['user']['name'] ?? 'Usuario';
+        if (!isset($_SESSION['user'])) {
+            header('Location: ?controller=Auth&action=mostrarLogin');
+            exit;
+        }
+
+        $userName = $_SESSION['user']['name'];
 
         $this->render('home.index', compact('userName'));
     }
@@ -28,7 +33,12 @@ class HomeController extends Controller
      */
     public function statics(): void
     {
-        $userName = $_SESSION['user']['name'] ?? 'Usuario';
+        if (!isset($_SESSION['user'])) {
+            header('Location: ?controller=Auth&action=mostrarLogin');
+            exit;
+        }
+
+        $userName = $_SESSION['user']['name'];
         $stats = $this->buildStatisticsContext();
 
         $this->render('statics.statics_main', array_merge($stats, compact('userName')));

@@ -16,6 +16,6 @@
   </footer>
 
   <!-- Script principal de la aplicación, cargado de forma diferida -->
-  <script defer src="/donapetit2/public/assets/js/principal.js"></script>
+  <script defer src="assets/js/principal.js"></script>
 </body>
 </html>
