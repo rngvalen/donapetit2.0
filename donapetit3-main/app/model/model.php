@@ -6,7 +6,7 @@ declare(strict_types=1);
  */
 class Model
 {
-    /** @var \PDO|null Instancia PDO compartida para la conexion */
+    /** @var \PDO|null Instancia PDO compartida para la conexión */
     protected static ?\PDO $db = null;
 
     /** @var string Nombre de la tabla asociada */
@@ -16,19 +16,24 @@ class Model
     protected string $pk = 'id';
 
     /**
-     * Inicializa la conexion compartida si aun no existe.
+     * Inicializa la conexión compartida si aún no existe.
      */
     protected static function initDb(): void
     {
         if (self::$db instanceof \PDO) {
-            return;
+            return; // Ya está inicializada
         }
 
         $configPath = __DIR__ . '/../../config/bdconexion.php';
+
+        if (!file_exists($configPath)) {
+            throw new \RuntimeException("No se encontró el archivo de configuración: $configPath");
+        }
+
         $pdo = require $configPath;
 
         if (!$pdo instanceof \PDO) {
-            throw new \RuntimeException('El archivo de configuracion debe retornar una instancia de PDO.');
+            throw new \RuntimeException('El archivo de configuración debe retornar una instancia de PDO.');
         }
 
         self::$db = $pdo;
@@ -48,7 +53,7 @@ class Model
     }
 
     /**
-     * Devuelve todos los registros con paginacion.
+     * Devuelve todos los registros con paginación.
      */
     public static function all(int $limit = 100, int $offset = 0): array
     {
@@ -75,6 +80,7 @@ class Model
 
         $cols = array_keys($data);
         $placeholders = array_fill(0, count($cols), '?');
+
         $sql = sprintf(
             'INSERT INTO %s (%s) VALUES (%s)',
             $this->table,
@@ -120,7 +126,6 @@ class Model
         self::initDb();
 
         $stmt = self::$db->prepare("DELETE FROM {$this->table} WHERE {$this->pk} = ?");
-
         return $stmt->execute([$id]);
     }
 }

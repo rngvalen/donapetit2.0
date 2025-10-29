@@ -56,4 +56,26 @@ class Auth {
         $stmt->execute();
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
+
+    // LOGIN - VERIFICAR CREDENCIALES
+    public function login($email, $password) {
+        try {
+            // Buscar usuario por email
+            $usuario = $this->usuarioPorEmail($email);
+
+            if (!$usuario) {
+                return false; // Usuario no existe
+            }
+
+            // Verificar contraseña
+            if (password_verify($password, $usuario['contrasena'])) {
+                return $usuario; // Login exitoso
+            }
+
+            return false; // Contraseña incorrecta
+        } catch (PDOException $e) {
+            echo "Error en login: " . $e->getMessage();
+            return false;
+        }
+    }
 }

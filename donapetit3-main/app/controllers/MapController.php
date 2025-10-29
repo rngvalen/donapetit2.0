@@ -52,4 +52,3 @@ class MapController extends Controller
 
 
 }
-

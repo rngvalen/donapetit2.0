@@ -5,6 +5,9 @@ $unidades = $unidades ?? [];
 $nombresDisponibles = $nombresDisponibles ?? [];
 $categorias = $categorias ?? [];
 ?>
+
+<link rel="stylesheet" href="/donapetit3-main/public/screens/css/estilo_productos_disponible.css">
+
 <section class="max-w-3xl mx-auto px-4 py-6">
   <div class="mb-4 flex items-center justify-between">
     <a href="index.php?controller=Producto&action=index" class="inline-flex items-center gap-2 text-brand hover:underline text-sm">
@@ -21,22 +24,26 @@ $categorias = $categorias ?? [];
 
   <header class="mb-4">
     <h1 class="text-xl font-semibold text-slate-900">Registrar disponibilidad</h1>
-    <p class="text-sm text-slate-600">Selecciona un producto del catalogo existente. Los nuevos productos se crean desde el panel de administracion.</p>
+    <p class="text-sm text-slate-600">
+      Selecciona un producto del catalogo existente. Los nuevos productos se crean desde el panel de administracion.
+    </p>
   </header>
 
   <div class="bg-white border rounded-xl shadow-sm p-4 md:p-6">
     <div id="errors" class="hidden mb-4 rounded-lg border border-red-300 bg-red-50 text-red-800 text-sm p-3"></div>
 
     <form id="loadProductForm"
-          action="/donapetit2/public/index.php?controller=Producto&action=store"
+          action="/donapetit3-main/public/index.php?controller=Producto&action=store"
           method="post"
           novalidate
           class="space-y-5">
 
+      <!-- Producto -->
       <div>
-        <label for="nombre" class="block text-sm font-medium mb-1">Producto <span class="text-red-600">*</span></label>
-        <select id="nombre"
-                name="nombre"
+        <label for="nom_producto" class="block text-sm font-medium mb-1">
+          Producto <span class="text-red-600">*</span>
+        </label>
+        <select id="nom_producto" name="nom_producto"
                 class="w-full rounded-lg border-zinc-300 focus:border-emerald-500 focus:ring-emerald-500">
           <option value="">Seleccionar producto</option>
           <?php foreach ($nombresDisponibles as $nombre): ?>
@@ -46,13 +53,18 @@ $categorias = $categorias ?? [];
           <?php endforeach; ?>
         </select>
         <?php if (empty($nombresDisponibles)): ?>
-          <p class="mt-2 text-xs text-amber-600">Aun no hay productos en el catalogo. Agrega nuevos desde el panel de administracion.</p>
+          <p class="mt-2 text-xs text-amber-600">
+            Aun no hay productos en el catalogo. Agrega nuevos desde el panel de administracion.
+          </p>
         <?php endif; ?>
       </div>
 
+      <!-- Categoria -->
       <div>
-        <label for="categoria" class="block text-sm font-medium mb-1">Categoria <span class="text-red-600">*</span></label>
-        <select id="categoria" name="categoria"
+        <label for="categoria_id" class="block text-sm font-medium mb-1">
+          Categoria <span class="text-red-600">*</span>
+        </label>
+        <select id="categoria_id" name="categoria_id"
                 class="w-full rounded-lg border-zinc-300 focus:border-emerald-500 focus:ring-emerald-500">
           <option value="">Seleccionar categoria</option>
           <?php foreach ($categorias as $id => $nombre): ?>
@@ -62,10 +74,13 @@ $categorias = $categorias ?? [];
           <?php endforeach; ?>
         </select>
         <?php if (empty($categorias)): ?>
-          <p class="mt-2 text-xs text-amber-600">No hay categorias disponibles. Agrega nuevas desde administracion.</p>
+          <p class="mt-2 text-xs text-amber-600">
+            No hay categorias disponibles. Agrega nuevas desde administracion.
+          </p>
         <?php endif; ?>
       </div>
 
+      <!-- Unidad -->
       <div>
         <label for="unidad" class="block text-sm font-medium mb-1">
           Unidad o presentacion <span class="text-red-600">*</span>
@@ -81,6 +96,7 @@ $categorias = $categorias ?? [];
         </select>
       </div>
 
+      <!-- Cantidad -->
       <div>
         <label for="cantidad" class="block text-sm font-medium mb-1">
           Cantidad disponible <span class="text-red-600">*</span>
@@ -91,21 +107,26 @@ $categorias = $categorias ?? [];
         <p class="text-xs text-zinc-500 mt-1">Solo enteros positivos.</p>
       </div>
 
+      <!-- Fecha de vencimiento -->
       <div>
-        <label for="vencimiento" class="block text-sm font-medium mb-1">
+        <label for="fecha_vencimiento" class="block text-sm font-medium mb-1">
           Fecha de vencimiento <span class="text-red-600">*</span>
         </label>
-        <input id="vencimiento" name="vencimiento" type="date"
+        <input id="fecha_vencimiento" name="fecha_vencimiento" type="date"
                class="w-full rounded-lg border-zinc-300 focus:border-emerald-500 focus:ring-emerald-500" />
       </div>
 
+      <!-- Comentarios -->
       <div>
-        <label for="comentarios" class="block text-sm font-medium mb-1">Comentarios (opcional)</label>
+        <label for="comentarios" class="block text-sm font-medium mb-1">
+          Comentarios (opcional)
+        </label>
         <textarea id="comentarios" name="comentarios" rows="4"
                   class="w-full rounded-lg border-zinc-300 focus:border-emerald-500 focus:ring-emerald-500"
                   placeholder="Informacion adicional, por ejemplo marca o empaque"></textarea>
       </div>
 
+      <!-- Botones -->
       <div class="pt-2 flex flex-col sm:flex-row gap-3">
         <button id="guardarBtn" type="submit"
                 class="inline-flex items-center justify-center rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 font-medium">
@@ -122,4 +143,4 @@ $categorias = $categorias ?? [];
   </div>
 </section>
 
-<script src="/donapetit2/public/assets/js/product_load.js"></script>
+<script src="/donapetit3-main/public/assets/js/product_load.js"></script>

@@ -1,4 +1,4 @@
-﻿<?php
+﻿﻿<?php
 $user = htmlspecialchars($userName ?? 'Usuario', ENT_QUOTES, 'UTF-8');
 ?>
 <section class="py-10 text-center">

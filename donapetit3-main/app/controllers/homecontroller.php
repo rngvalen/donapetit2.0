@@ -10,25 +10,39 @@ require_once __DIR__ . '/../model/donacion.php';
 class HomeController extends Controller
 {
     /**
-     * Muestra la vista de bienvenida del sistema.
+     * Muestra la vista principal del panel.
      *
      * @return void
      */
     public function index(): void
     {
-        $userName = $_SESSION['user']['name'] ?? 'Usuario';
+        // 🛑 Protección: si no hay login, afuera
+        if (!isset($_SESSION['user'])) {
+            header("Location: ?controller=Auth&action=mostrarLogin");
+            exit;
+        }
 
+        // ✅ Tomamos el nombre real desde la sesión
+        $userName = $_SESSION['user']['name'];
+
+        // Render de la vista principal
         $this->render('home.index', compact('userName'));
     }
 
     /**
-     * Muestra la vista de estadisticas con informacion proveniente de la base de datos.
+     * Muestra la vista de estadísticas con info de la base de datos
      *
      * @return void
      */
     public function statics(): void
     {
-        $userName = $_SESSION['user']['name'] ?? 'Usuario';
+        // 🛑 Protección: si no hay login, afuera
+        if (!isset($_SESSION['user'])) {
+            header("Location: ?controller=Auth&action=mostrarLogin");
+            exit;
+        }
+
+        $userName = $_SESSION['user']['name'];
         $stats = $this->buildStatisticsContext();
 
         $this->render('statics.statics_main', array_merge($stats, compact('userName')));
