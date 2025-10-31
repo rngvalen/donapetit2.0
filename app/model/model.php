@@ -123,4 +123,18 @@ class Model
 
         return $stmt->execute([$id]);
     }
+
+    /**
+     * Devuelve la instancia PDO compartida.
+     */
+    public static function getConnection(): \PDO
+    {
+        self::initDb();
+
+        if (!(self::$db instanceof \PDO)) {
+            throw new \RuntimeException('No se pudo establecer la conexion a la base de datos.');
+        }
+
+        return self::$db;
+    }
 }

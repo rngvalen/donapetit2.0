@@ -4,41 +4,63 @@ require_once __DIR__ . '/model.php';
 class Donacion extends Model {
     protected string $table = "donacion";
     protected string $pk    = "id_donacion";
+
+    private string $detalleTable = 'detalles_donacion';
+    private string $productosTable = 'productos';
+
     /** @var array<string,bool> */
     private static array $columnCache = [];
 
-    private function hasColumn(string $column): bool
+    private function hasColumn(string $table, string $column): bool
     {
         self::initDb();
 
-        $cacheKey = $this->table . ':' . $column;
+        $cacheKey = $table . ':' . $column;
         if (array_key_exists($cacheKey, self::$columnCache)) {
             return self::$columnCache[$cacheKey];
         }
 
-        $stmt = self::$db->prepare('SHOW COLUMNS FROM ' . $this->table . ' LIKE ?');
-        $stmt->execute([$column]);
-        $exists = (bool) $stmt->fetch(\PDO::FETCH_ASSOC);
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', $table)) {
+            throw new \InvalidArgumentException('Nombre de tabla invalido.');
+        }
+
+        $sql = sprintf(
+            'SHOW COLUMNS FROM `%s` LIKE %s',
+            $table,
+            self::$db->quote($column)
+        );
+
+        $stmt = self::$db->query($sql);
+        $exists = $stmt !== false && (bool) $stmt->fetch(\PDO::FETCH_ASSOC);
         self::$columnCache[$cacheKey] = $exists;
 
         return $exists;
     }
 
-    private function productTableHas(string $column): bool
+    private function extraerNombreProducto(?string $comentario): string
     {
-        self::initDb();
-
-        $cacheKey = 'productos:' . $column;
-        if (array_key_exists($cacheKey, self::$columnCache)) {
-            return self::$columnCache[$cacheKey];
+        if ($comentario === null) {
+            return 'Producto sin nombre';
         }
 
-        $stmt = self::$db->prepare('SHOW COLUMNS FROM productos LIKE ?');
-        $stmt->execute([$column]);
-        $exists = (bool) $stmt->fetch(\PDO::FETCH_ASSOC);
-        self::$columnCache[$cacheKey] = $exists;
+        $comentario = trim($comentario);
+        if ($comentario === '') {
+            return 'Producto sin nombre';
+        }
 
-        return $exists;
+        $decoded = json_decode($comentario, true);
+        if (is_array($decoded)) {
+            foreach (['nom_producto', 'nombre', 'producto', 'label', 'titulo'] as $key) {
+                if (!empty($decoded[$key])) {
+                    $value = trim((string) $decoded[$key]);
+                    if ($value !== '') {
+                        return $value;
+                    }
+                }
+            }
+        }
+
+        return $comentario;
     }
 
     public function crear($idProducto, $cantidad, $fecha, $estado = "DISPONIBLE") {
@@ -47,7 +69,7 @@ class Donacion extends Model {
 
     public function actualizarEstado($idDonacion, $estado) {
         self::initDb();
-        if (!$this->hasColumn('estado')) {
+        if (!$this->hasColumn($this->table, 'estado')) {
             return false;
         }
 
@@ -57,9 +79,7 @@ class Donacion extends Model {
     public function buscarPorProducto($idProducto) {
         self::initDb();
 
-        $column = $this->hasColumn('id_producto') ? 'id_producto' : 'id_productos';
-
-        $stmt = self::$db->prepare("SELECT * FROM {$this->table} WHERE {$column} = ?");
+        $stmt = self::$db->prepare("SELECT * FROM {$this->detalleTable} WHERE id_productofk = ?");
         $stmt->execute([$idProducto]);
 
         return $stmt->fetchAll(\PDO::FETCH_ASSOC);
@@ -74,7 +94,7 @@ class Donacion extends Model {
     public function totalRegistros(): int {
         self::initDb();
 
-        $stmt = self::$db->query("SELECT COUNT(*) FROM {$this->table}");
+        $stmt = self::$db->query("SELECT COUNT(*) FROM {$this->detalleTable}");
 
         return (int) ($stmt->fetchColumn() ?: 0);
     }
@@ -82,7 +102,11 @@ class Donacion extends Model {
     public function totalCantidad(): int {
         self::initDb();
 
-        $stmt = self::$db->query("SELECT COALESCE(SUM(cantidad_donado), 0) AS total FROM {$this->table}");
+        if (!$this->hasColumn($this->detalleTable, 'cantidad_donado')) {
+            return 0;
+        }
+
+        $stmt = self::$db->query("SELECT COALESCE(SUM(cantidad_donado), 0) AS total FROM {$this->detalleTable}");
 
         return (int) ($stmt->fetchColumn() ?: 0);
     }
@@ -90,44 +114,34 @@ class Donacion extends Model {
     public function totalPorEstado(string $estado): int {
         self::initDb();
 
-        if (!$this->hasColumn('estado')) {
-            return $this->totalCantidad();
+        if ($this->hasColumn($this->table, 'estado')) {
+            $stmt = self::$db->prepare("SELECT COALESCE(SUM(cantidad_donado), 0) FROM {$this->table} WHERE estado = ?");
+            $stmt->execute([$estado]);
+            return (int) ($stmt->fetchColumn() ?: 0);
         }
 
-        $stmt = self::$db->prepare("SELECT COALESCE(SUM(cantidad_donado), 0) FROM {$this->table} WHERE estado = ?");
-        $stmt->execute([$estado]);
-
-        return (int) ($stmt->fetchColumn() ?: 0);
+        return $this->totalCantidad();
     }
 
     public function topProductos(int $limit = 5): array {
         self::initDb();
 
-        $fkColumn = $this->hasColumn('id_producto') ? 'id_producto' : 'id_productos';
-        $productPk = $this->productTableHas('id_producto') ? 'id_producto' : 'id_productos';
-
-        $labelCandidate = null;
-        foreach (['nom_producto', 'nombre', 'comentario'] as $candidate) {
-            if ($this->productTableHas($candidate)) {
-                $labelCandidate = $candidate;
-                break;
-            }
-        }
-
-        $fallbackExpr = "CONCAT('Producto #', d.{$fkColumn})";
-        $labelExpr = $fallbackExpr;
-        if ($labelCandidate !== null) {
-            $labelExpr = "COALESCE(p.{$labelCandidate}, {$fallbackExpr})";
+        if (!$this->hasColumn($this->detalleTable, 'cantidad_donado')) {
+            return [
+                'labels' => ['Sin datos'],
+                'values' => [0],
+            ];
         }
 
         $sql = "
             SELECT
-                {$labelExpr} AS nombre,
-                SUM(d.cantidad_donado) AS total
-            FROM {$this->table} d
-            LEFT JOIN productos p ON p.{$productPk} = d.{$fkColumn}
-            WHERE d.{$fkColumn} IS NOT NULL
-            GROUP BY d.{$fkColumn}
+                dd.id_productofk AS product_id,
+                SUM(dd.cantidad_donado) AS total,
+                p.comentario
+            FROM {$this->detalleTable} dd
+            LEFT JOIN {$this->productosTable} p ON p.id_productos = dd.id_productofk
+            WHERE dd.id_productofk IS NOT NULL
+            GROUP BY dd.id_productofk, p.comentario
             ORDER BY total DESC
             LIMIT :limit
         ";
@@ -137,19 +151,20 @@ class Donacion extends Model {
         $stmt->execute();
 
         $rows = $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
-        $labels = [];
-        $values = [];
 
-        foreach ($rows as $row) {
-            $labels[] = (string) ($row['nombre'] ?? 'Sin datos');
-            $values[] = (int) ($row['total'] ?? 0);
-        }
-
-        if ($labels === []) {
+        if ($rows === []) {
             return [
                 'labels' => ['Sin datos'],
                 'values' => [0],
             ];
+        }
+
+        $labels = [];
+        $values = [];
+
+        foreach ($rows as $row) {
+            $labels[] = $this->extraerNombreProducto($row['comentario'] ?? null);
+            $values[] = (int) ($row['total'] ?? 0);
         }
 
         return [
@@ -166,37 +181,41 @@ class Donacion extends Model {
         $start = $current->sub(new \DateInterval('P' . ($months - 1) . 'M'));
         $startDate = $start->format('Y-m-01 00:00:00');
 
-        $dateColumn = null;
-        if ($this->hasColumn('fecha_publicacion')) {
-            $dateColumn = 'fecha_publicacion';
-        } elseif ($this->hasColumn('create_at')) {
-            $dateColumn = 'create_at';
+        $dateColumns = [];
+        foreach (['fecha_donacion', 'create_at'] as $col) {
+            if ($this->hasColumn($this->detalleTable, $col)) {
+                $dateColumns[] = 'dd.' . $col;
+            }
+        }
+        if ($this->hasColumn($this->table, 'create_at')) {
+            $dateColumns[] = 'd.create_at';
         }
 
-        if ($dateColumn === null) {
+        if ($dateColumns === []) {
             $labels = [];
             $values = [];
             $monthNames = [
                 1 => 'Ene', 2 => 'Feb', 3 => 'Mar', 4 => 'Abr', 5 => 'May', 6 => 'Jun',
                 7 => 'Jul', 8 => 'Ago', 9 => 'Sep', 10 => 'Oct', 11 => 'Nov', 12 => 'Dic',
             ];
-            $start = new \DateTimeImmutable('first day of this month');
-            $start = $start->sub(new \DateInterval('P' . ($months - 1) . 'M'));
             for ($i = 0; $i < $months; $i++) {
                 $point = $start->add(new \DateInterval('P' . $i . 'M'));
                 $labels[] = $monthNames[(int) $point->format('n')];
                 $values[] = 0;
             }
-            return [ 'labels' => $labels, 'values' => $values ];
+            return ['labels' => $labels, 'values' => $values];
         }
+
+        $dateExpr = 'COALESCE(' . implode(', ', $dateColumns) . ')';
 
         $sql = "
             SELECT
-                DATE_FORMAT({$dateColumn}, '%Y-%m') AS month_key,
-                SUM(cantidad_donado) AS total
-            FROM {$this->table}
-            WHERE {$dateColumn} IS NOT NULL
-              AND {$dateColumn} >= :startDate
+                DATE_FORMAT({$dateExpr}, '%Y-%m') AS month_key,
+                SUM(dd.cantidad_donado) AS total
+            FROM {$this->detalleTable} dd
+            LEFT JOIN {$this->table} d ON d.id_donacion = dd.id_donacionfk
+            WHERE {$dateExpr} IS NOT NULL
+              AND {$dateExpr} >= :startDate
             GROUP BY month_key
             ORDER BY month_key
         ";

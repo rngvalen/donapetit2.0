@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/controller.php';
+require_once __DIR__ . '/../model/model.php';
 require_once __DIR__ . '/../model/Producto.php';
 
 /**
@@ -49,6 +50,66 @@ class AdminController extends Controller
      */
     
 
+    public function notificationSettings(): void
+    {
+        $radioMin = 1;
+        $radioMax = 25;
+        $radioActual = 5;
+        $canales = [
+            'push' => false,
+            'email' => false,
+        ];
+
+        try {
+            $pdo = Model::getConnection();
+
+            $coordStmt = $pdo->query('SELECT Latitud, Longitud FROM direcciones WHERE Latitud IS NOT NULL AND Longitud IS NOT NULL');
+            $coordenadas = $coordStmt ? ($coordStmt->fetchAll(\PDO::FETCH_ASSOC) ?: []) : [];
+
+            if ($coordenadas !== []) {
+                $canales['push'] = true;
+                $total = count($coordenadas);
+                $sumLat = 0.0;
+                $sumLon = 0.0;
+
+                foreach ($coordenadas as $coordenada) {
+                    $sumLat += (float) $coordenada['Latitud'];
+                    $sumLon += (float) $coordenada['Longitud'];
+                }
+
+                $centroLat = $sumLat / $total;
+                $centroLon = $sumLon / $total;
+
+                $maxDistancia = 0.0;
+                foreach ($coordenadas as $coordenada) {
+                    $distancia = $this->calculateDistanceKm(
+                        $centroLat,
+                        $centroLon,
+                        (float) $coordenada['Latitud'],
+                        (float) $coordenada['Longitud']
+                    );
+                    if ($distancia > $maxDistancia) {
+                        $maxDistancia = $distancia;
+                    }
+                }
+
+                if ($maxDistancia > 0) {
+                    $radioActual = (int) ceil(min($radioMax, max($radioMin, $maxDistancia)));
+                }
+            }
+
+            $emailStmt = $pdo->query("SELECT COUNT(*) FROM usuarios WHERE Email IS NOT NULL AND Email <> '' AND (activo = '1' OR activo IS NULL)");
+            $emails = $emailStmt ? (int) ($emailStmt->fetchColumn() ?: 0) : 0;
+            if ($emails > 0) {
+                $canales['email'] = true;
+            }
+        } catch (\Throwable $exception) {
+            // Mantener valores por defecto si ocurre un error en la consulta.
+        }
+
+        $this->render('admin.notification_settings', compact('radioMin', 'radioMax', 'radioActual', 'canales'));
+    }
+
     /**
      * Normaliza los campos de un producto para facilitar su consumo.
      *
@@ -70,6 +131,15 @@ class AdminController extends Controller
             if (is_numeric($cantidadValor)) {
                 $cantidad = (int)$cantidadValor;
             }
+        }
+
+        if ($cantidad === null) {
+            $cantidad = 0;
+        }
+
+        if ($estado === 'SIN_ESTADO' && $cantidad > 0) {
+            $estado = 'DISPONIBLE';
+            $estadoRaw = 'Disponible';
         }
 
         $fechaRaw = trim((string)($producto['fecha_vencimiento'] ?? ''));
@@ -398,6 +468,24 @@ class AdminController extends Controller
             default:
                 return 'bg-slate-100 text-slate-700';
         }
+    }
+
+    /**
+     * Calcula la distancia en kilometros entre dos coordenadas.
+     */
+    private function calculateDistanceKm(float $lat1, float $lon1, float $lat2, float $lon2): float
+    {
+        $earthRadius = 6371;
+
+        $latDelta = deg2rad($lat2 - $lat1);
+        $lonDelta = deg2rad($lon2 - $lon1);
+
+        $a = sin($latDelta / 2) ** 2
+            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($lonDelta / 2) ** 2;
+
+        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
+
+        return $earthRadius * $c;
     }
 }
 

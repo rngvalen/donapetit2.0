@@ -1,9 +1,9 @@
 <?php
-// Obtiene el nombre de usuario desde la variable $userName, o desde la sesion si no esta definida
-$userName = $userName ?? ($_SESSION['user']['name'] ?? 'Usuario');
-
-// Obtiene el avatar del usuario si esta disponible
-$userAvatar = $userAvatar ?? ($_SESSION['user']['avatar'] ?? null);
+// Obtiene datos del usuario autenticado.
+$userSession = $_SESSION['user'] ?? [];
+$userName = $userName ?? ($userSession['name'] ?? 'Usuario');
+$userAvatar = $userAvatar ?? ($userSession['avatar'] ?? null);
+$userRole = $userSession['rol'] ?? null;
 
 // Define los items del menu agrupados por secciones (usuario/admin/cuenta).
 $menuSections = $menuSections ?? null;
@@ -16,11 +16,22 @@ if ($menuSections === null) {
                 ['label' => 'Inicio', 'url' => 'index.php?controller=Home&action=index'],
                 ['label' => 'Mis productos', 'url' => 'index.php?controller=Producto&action=misProductos'],
                 ['label' => 'Productos disponibles', 'url' => 'index.php?controller=Producto&action=productosDisponibles'],
-                ['label' => 'Mapa', 'url' => ''],
+                ['label' => 'Mapa', 'url' => 'index.php?controller=Map&action=index'],
             ],
-            'Cuenta' => [
-                ['label' => 'Cerrar sesion', 'url' => 'index.php?controller=Auth&action=logout'],
-            ],
+        ];
+
+        $roleNormalized = is_string($userRole) ? strtolower($userRole) : '';
+
+        if ($roleNormalized === 'admin') {
+            $menuSections['Administracion'] = [
+                ['label' => 'Panel general', 'url' => 'index.php?controller=Admin&action=principal'],
+                ['label' => 'Catalogo', 'url' => 'index.php?controller=Producto&action=catalogo'],
+                ['label' => 'Notificaciones', 'url' => 'index.php?controller=Admin&action=notificationSettings'],
+            ];
+        }
+
+        $menuSections['Cuenta'] = [
+            ['label' => 'Cerrar sesion', 'url' => 'index.php?controller=Auth&action=logout'],
         ];
     }
 }

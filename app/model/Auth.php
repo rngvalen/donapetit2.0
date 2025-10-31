@@ -1,90 +1,67 @@
 <?php
-require_once __DIR__ . '/../../config/bdconexion.php';
+require_once __DIR__ . '/UserRepository.php';
 
-class Auth {
-    private $conn;
-    private $lastError = null;
+class AuthService {
+    private $users;
 
     public function __construct() {
-        $database = new Database();
-        $this->conn = $database->getConnection();
+        $this->users = new UserRepository();
     }
 
-    public function getLastError() {
-        return $this->lastError;
-    }
+    public function register(
+        string $nombre,
+        string $email,
+        string $password,
+        ?string $rol = 'donante',
+        ?string $telefono = null,
+        ?string $latitud = null,
+        ?string $longitud = null
+    ): int {
+        $email = strtolower(trim($email));
 
-    // Registrar nuevo usuario con latitud y longitud
-    public function registrarUsuario($nombre, $email, $contrasena, $rol = 'donante', $telefono = null, $latitud = null, $longitud = null) {
-        $this->lastError = null;
-
-        try {
-            // Verificar si el email ya existe
-            $check = $this->conn->prepare("SELECT * FROM usuarios WHERE Email = :email");
-            $check->bindParam(':email', $email);
-            $check->execute();
-
-            if ($check->rowCount() > 0) {
-                $this->lastError = 'El email ya esta registrado.';
-                return false;
-            }
-
-            // Hashear contrasena
-            $hash = password_hash($contrasena, PASSWORD_DEFAULT);
-
-            // Insertar nuevo usuario con ubicacion
-            $sql = "INSERT INTO usuarios (Nombre, Email, `contrasena`, rol, telefono, activo, Latitud, Longitud)
-                    VALUES (:nombre, :email, :contrasena, :rol, :telefono, 1, :latitud, :longitud)";
-            $stmt = $this->conn->prepare($sql);
-            $stmt->bindParam(':nombre', $nombre);
-            $stmt->bindParam(':email', $email);
-            $stmt->bindParam(':contrasena', $hash);
-            $stmt->bindParam(':rol', $rol);
-            $stmt->bindParam(':telefono', $telefono);
-            $stmt->bindParam(':latitud', $latitud);
-            $stmt->bindParam(':longitud', $longitud);
-
-            if ($stmt->execute()) {
-                return true;
-            }
-
-            $this->lastError = 'No se pudo registrar el usuario.';
-            return false;
-        } catch (PDOException $e) {
-            $this->lastError = 'Error al registrar: ' . $e->getMessage();
-            return false;
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw new InvalidArgumentException("Email inválido");
         }
-    }
-
-    // Buscar usuario por email
-    public function usuarioPorEmail($email) {
-        $stmt = $this->conn->prepare("SELECT * FROM usuarios WHERE Email = :email");
-        $stmt->bindParam(':email', $email);
-        $stmt->execute();
-        return $stmt->fetch(PDO::FETCH_ASSOC);
-    }
-
-    // Verificar credenciales de inicio de sesion
-    public function login($email, $password) {
-        $this->lastError = null;
-
-        try {
-            $usuario = $this->usuarioPorEmail($email);
-
-            if (!$usuario) {
-                $this->lastError = 'Email o contrasena incorrectos.';
-                return false;
-            }
-
-            if (!password_verify($password, $usuario['contrasena'])) {
-                $this->lastError = 'Email o contrasena incorrectos.';
-                return false;
-            }
-
-            return $usuario;
-        } catch (PDOException $e) {
-            $this->lastError = 'Error en login: ' . $e->getMessage();
-            return false;
+        if (strlen($password) < 8) {
+            throw new InvalidArgumentException("La contraseña debe tener al menos 8 caracteres");
         }
+        if ($this->users->findByEmail($email)) {
+            throw new DomainException("El email ya está registrado");
+        }
+
+        $hash = password_hash($password, PASSWORD_DEFAULT);
+
+        return $this->users->create([
+            'nombre'        => $nombre,
+            'email'         => $email,
+            'password_hash' => $hash,
+            'rol'           => $rol ?? 'donante',
+            'telefono'      => $telefono,
+            'latitud'       => $latitud,
+            'longitud'      => $longitud,
+            'activo'        => 1,
+        ]);
+    }
+
+    public function login(string $email, string $password): array {
+        $email = strtolower(trim($email));
+        $user  = $this->users->findByEmail($email);
+
+        if (!$user || !password_verify($password, $user['password_hash'])) {
+            throw new DomainException("Credenciales inválidas");
+        }
+
+        // Rehash transparente si el algoritmo/costo cambió
+        if (password_needs_rehash($user['password_hash'], PASSWORD_DEFAULT)) {
+            $new = password_hash($password, PASSWORD_DEFAULT);
+            $this->users->updatePasswordHash((int)$user['id'], $new);
+            $user['password_hash'] = $new;
+        }
+
+        if (isset($user['activo']) && (int)$user['activo'] !== 1) {
+            throw new DomainException("Cuenta inactiva");
+        }
+
+        return $user;
     }
 }
