@@ -1,0 +1,120 @@
+:root{
+  --verde: #5e8378;
+  --verde-osc: #4c6b62;
+  --verde-claro: #7aa598;
+  --bg: #f1f3f2;
+  --card: #ffffff;
+  --borde: #e3e7e9;
+  --texto: #2f3b3a;
+  --muted: #6f7b78;
+  --accent: #5e8378;
+}
+
+/* Reset */
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  font-family:'Inter',system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+  background:var(--bg);
+  color:var(--texto);
+}
+
+/* Topbar */
+.topbar{
+  height:56px;
+  background:linear-gradient(135deg, var(--verde) 0%, var(--verde-claro) 100%);
+  color:#fff;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 10px;
+  box-shadow:0 2px 6px rgba(0,0,0,.08);
+}
+.topbar h1{
+  font-size:16px;
+  font-weight:800;
+  letter-spacing:.2px;
+}
+.icon-btn{
+  background:transparent;
+  border:none;
+  color:#fff;
+  padding:8px;
+  border-radius:10px;
+  cursor:pointer;
+  transition: background .2s, transform .15s;
+}
+.icon-btn:hover{ background:rgba(255,255,255,.15); transform:scale(1.05) }
+.right{ display:flex; gap:4px }
+
+/* Layout */
+.wrap{max-width:1060px;margin:20px auto;padding:0 16px}
+
+/* Grid */
+.grid{
+  display:grid;
+  grid-template-columns:repeat(3, 1fr);
+  gap:22px;
+}
+@media (max-width:980px){ .grid{grid-template-columns:repeat(2, 1fr)} }
+@media (max-width:620px){ .grid{grid-template-columns:1fr} }
+
+/* Card */
+.card{
+  background:var(--card);
+  border:1px solid var(--borde);
+  border-radius:18px;
+  padding:16px;
+  box-shadow:0 10px 20px -12px rgba(14,30,37,0.12);
+  transition:transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+}
+.card:hover{
+  transform:translateY(-4px);
+  box-shadow:0 20px 28px -14px rgba(14,30,37,0.22);
+  border-color:#d9dfe1;
+}
+
+/* Thumb */
+.thumb{
+  height:140px;
+  border:2px dashed var(--borde);
+  border-radius:14px;
+  color:#9aa6a3;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  margin-bottom:12px;
+  background:linear-gradient(135deg,#f9fbfb 0%,#fff 100%);
+}
+
+/* Nombre + lugar */
+.name{
+  font-size:14px;
+  font-weight:800;
+  text-align:center;
+  margin:4px 0 6px;
+}
+.place{
+  margin:0 0 12px;
+  text-align:center;
+  font-size:13px;
+  color:var(--muted);
+}
+.place span{ color:var(--texto); font-weight:700 }
+
+/* Botón */
+.btn-primary{
+  width:100%;
+  border:0;
+  height:36px;
+  border-radius:10px;
+  background:#3d538f;
+  color:#fff;
+  font-weight:700;
+  letter-spacing:.2px;
+  cursor:pointer;
+  transition: filter .2s, transform .1s;
+  box-shadow:0 10px 16px -12px rgba(4,64,54,.35);
+}
+.btn-primary:hover{ filter: brightness(1.05) }
+.btn-primary:active{ transform: scale(.98) }

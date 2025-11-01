@@ -1,0 +1,91 @@
+/* Paleta simple de la maqueta */
+:root{
+  --verde:#5e8378;
+  --verde-osc:#4c6b62;
+  --gris:#cccccc;
+  --gris-borde:#e3e3e3;
+  --texto:#333;
+  --muted:#666;
+  --bg:#f7f7f7;
+  --white:#fff;
+  --radius:10px;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  color:var(--texto); background:var(--bg);
+}
+
+/* Layout */
+.container{max-width:1100px; margin:0 auto; padding:0 16px}
+
+/* Header */
+.header{background:var(--verde); color:#fff}
+.header__bar{
+  display:flex; align-items:center; justify-content:space-between; padding:14px 0;
+}
+.brand{font-weight:800; letter-spacing:.2px; display:flex; gap:8px; align-items:center}
+.brand span{font-weight:800}
+
+/* Hamburguesa */
+.hamburger{
+  width:28px; height:22px; display:flex; flex-direction:column; justify-content:space-between;
+  background:none; border:0; cursor:pointer; padding:0;
+}
+.hamburger span{display:block; height:3px; border-radius:2px; background:#fff}
+
+/* Search card */
+.search-card{
+  display:flex; gap:10px; align-items:center;
+  background:var(--white); border:1px solid var(--gris-borde); border-radius:var(--radius);
+  padding:12px; margin:18px 0 10px; box-shadow:0 2px 6px rgba(0,0,0,.05);
+}
+.search-card input{
+  flex:1; padding:10px 12px; border:1px solid var(--gris-borde); border-radius:8px; outline:none;
+}
+.btn{
+  border:0; padding:10px 14px; border-radius:8px; cursor:pointer; font-weight:600;
+}
+.btn-primary{background:var(--verde); color:#fff}
+.btn-primary:hover{background:var(--verde-osc)}
+.btn-secondary{background:var(--gris); color:#222}
+.btn-secondary:hover{filter:brightness(.95)}
+
+/* Título */
+.page-title{font-size:32px; margin:18px 0 10px}
+
+/* Grid y cards */
+.grid{
+  display:grid; gap:18px; grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+  margin:12px 0 32px;
+}
+.card{
+  background:var(--white); border:1px solid var(--gris-borde); border-radius:var(--radius); padding:16px;
+}
+.chip{
+  display:inline-block; background:var(--verde); color:#fff; font-size:12px;
+  padding:6px 10px; border-radius:999px; margin-bottom:8px;
+}
+.card h3{margin:6px 0 8px}
+.muted{color:var(--muted)}
+
+footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background-color: #f1f1f1;
+  text-align: center;
+  padding: 15px;
+  font-size: 14px;
+  color: #666;
+}
+
+
+/* Responsivo */
+@media (max-width:620px){
+  .search-card{flex-wrap:wrap}
+  .btn{width:100%}
+}
