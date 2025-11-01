@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panel de Administración • DonAppétit</title>
+  <link rel="stylesheet" href="css/estilo_pagina_administracion.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Header -->
+  <header class="main-header">
+    <div class="brand">DonAppétit</div>
+    <div class="title">Panel de Administración</div>
+    <div class="menu">☰</div>
+  </header>
+
+  <main>
+    <!-- Gestión de usuarios -->
+    <section class="usuarios">
+      <h2 class="section-title">Gestión de usuarios:</h2>
+
+      <div class="buscador">
+        <input type="text" placeholder="Buscar usuarios..." />
+        <button class="btn-plain">Buscar</button>
+      </div>
+
+      <div class="table-shell">
+        <table class="users-table">
+          <thead>
+            <tr>
+              <th>NOMBRE</th>
+              <th>ROL</th>
+              <th>NOMBRE COMERCIAL</th>
+              <th>ENTIDAD</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>María González</td>
+              <td></td>
+              <td></td>
+              <td>Comedor Comunitario</td>
+            </tr>
+            <tr>
+              <td>Carlos Rodríguez</td>
+              <td></td>
+              <td></td>
+              <td>Comedor Escolar</td>
+            </tr>
+            <tr>
+              <td>Ana Martínez</td>
+              <td></td>
+              <td></td>
+              <td>Supermercado Local</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Catálogo de productos -->
+    <section class="catalogo">
+      <h2 class="page-title">Catálogo de Productos</h2>
+
+      <div class="acciones">
+        <button class="btn btn-primary">Añadir</button>
+        <button class="btn btn-secondary">Filtrar</button>
+      </div>
+
+      <ul class="catalog-summary">
+        <li><span class="strong">Frutas y Verduras</span> — <span class="muted">32 productos</span></li>
+        <li><span class="strong">Lácteos</span> — <span class="muted">18 productos</span></li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>
