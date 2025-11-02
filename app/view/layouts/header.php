@@ -1,43 +1,57 @@
 <?php
-// Obtiene datos del usuario autenticado.
-$userSession = $_SESSION['user'] ?? [];
-$userName = $userName ?? ($userSession['name'] ?? 'Usuario');
-$userAvatar = $userAvatar ?? ($userSession['avatar'] ?? null);
-$userRole = $userSession['rol'] ?? null;
+require_once __DIR__ . '/../../core/auth_session.php';
 
-// Define los items del menu agrupados por secciones (usuario/admin/cuenta).
+$currentUser = current_user() ?? [];
+$isLogged = is_logged();
+$isAdmin = has_role(ROLE_ADMIN);
+
+$userName = $userName ?? ($currentUser['name'] ?? 'Invitado');
+$userAvatar = $userAvatar ?? ($currentUser['avatar'] ?? null);
+$userRole = $userRole ?? ($currentUser['rol'] ?? null);
+
 $menuSections = $menuSections ?? null;
 if ($menuSections === null) {
     if (isset($menuItems) && is_array($menuItems)) {
         $menuSections = ['Menu' => $menuItems];
     } else {
-        $menuSections = [
-            'Navegacion' => [
+        $menuSections = [];
+
+        if ($isLogged) {
+            $navigation = [
                 ['label' => 'Inicio', 'url' => 'index.php?controller=Home&action=index'],
-                ['label' => 'Mis productos', 'url' => 'index.php?controller=Producto&action=misProductos'],
-                ['label' => 'Productos disponibles', 'url' => 'index.php?controller=Producto&action=productosDisponibles'],
-                ['label' => 'Mapa', 'url' => 'index.php?controller=Map&action=index'],
-            ],
-        ];
+            ];
 
-        $roleNormalized = is_string($userRole) ? strtolower($userRole) : '';
+            if (can('productos.listar')) {
+                $navigation[] = ['label' => 'Mis productos', 'url' => 'index.php?controller=Producto&action=misProductos'];
+                $navigation[] = ['label' => 'Productos disponibles', 'url' => 'index.php?controller=Producto&action=productosDisponibles'];
+            }
 
-        if ($roleNormalized === 'admin') {
-            $menuSections['Administracion'] = [
-                ['label' => 'Panel general', 'url' => 'index.php?controller=Admin&action=principal'],
-                ['label' => 'Catalogo', 'url' => 'index.php?controller=Producto&action=catalogo'],
-                ['label' => 'Notificaciones', 'url' => 'index.php?controller=Admin&action=notificationSettings'],
+            $navigation[] = ['label' => 'Mapa', 'url' => 'index.php?controller=Map&action=index'];
+
+            $menuSections['Navegacion'] = $navigation;
+
+            if ($isAdmin) {
+                $menuSections['Administracion'] = [
+                    ['label' => 'Panel general', 'url' => 'index.php?controller=Admin&action=principal'],
+                    ['label' => 'Catalogo', 'url' => 'index.php?controller=Producto&action=catalogo'],
+                    ['label' => 'Notificaciones', 'url' => 'index.php?controller=Admin&action=notificationSettings'],
+                    ['label' => 'Usuarios', 'url' => '?controller=Usuario&action=index'],
+                ];
+            }
+
+            $menuSections['Cuenta'] = [
+                ['label' => 'Cerrar sesion', 'url' => 'index.php?controller=Auth&action=logout'],
+            ];
+        } else {
+            $menuSections['Cuenta'] = [
+                ['label' => 'Ingresar', 'url' => '?controller=Auth&action=mostrarLogin'],
+                ['label' => 'Registrarse', 'url' => '?controller=Auth&action=mostrarRegistro'],
             ];
         }
-
-        $menuSections['Cuenta'] = [
-            ['label' => 'Cerrar sesion', 'url' => 'index.php?controller=Auth&action=logout'],
-        ];
     }
 }
 
-// Obtiene la inicial del nombre de usuario para mostrar en el avatar si no hay imagen
-$initial = strtoupper(mb_substr($userName, 0, 1, 'UTF-8'));
+$initial = strtoupper(mb_substr((string)$userName, 0, 1, 'UTF-8') ?: '?');
 ?>
 <!doctype html>
 <html lang="es">

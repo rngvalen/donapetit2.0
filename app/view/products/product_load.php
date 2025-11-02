@@ -13,10 +13,12 @@ $categorias = $categorias ?? [];
       </svg>
       Volver al listado
     </a>
-    <a href="index.php?controller=Admin&action=principal"
-       class="text-xs font-semibold uppercase tracking-wide text-slate-500 hover:text-brand">
-      Gestionar catalogo
-    </a>
+    <?php if (has_role(ROLE_ADMIN)): ?>
+      <a href="index.php?controller=Admin&action=principal"
+         class="text-xs font-semibold uppercase tracking-wide text-slate-500 hover:text-brand">
+        Gestionar catalogo
+      </a>
+    <?php endif; ?>
   </div>
 
   <header class="mb-4">

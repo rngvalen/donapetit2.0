@@ -3,6 +3,11 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../model/authservice.php';
 
+
+
+
+
+
 class AuthController {
     private $auth;
 
@@ -10,6 +15,9 @@ class AuthController {
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
+        // ⬇️ importa helpers de sesión/rol
+        require_once __DIR__ . '/../core/auth_session.php';
+
         $this->auth = new AuthService();
     }
 
@@ -19,8 +27,7 @@ class AuthController {
 
     public function registrar(): void {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: ?controller=Auth&action=mostrarRegistro');
-            exit;
+            header('Location: ?controller=Auth&action=mostrarRegistro'); exit;
         }
 
         $nombre     = trim($_POST['nombre'] ?? '');
@@ -33,8 +40,7 @@ class AuthController {
 
         if ($nombre === '' || $email === '' || $contrasena === '') {
             $_SESSION['error'] = 'Faltan campos obligatorios.';
-            header('Location: ?controller=Auth&action=mostrarRegistro');
-            exit;
+            header('Location: ?controller=Auth&action=mostrarRegistro'); exit;
         }
 
         try {
@@ -49,18 +55,15 @@ class AuthController {
             );
 
             $_SESSION['success'] = 'Registro exitoso. Ya podes iniciar sesion.';
-            header('Location: ?controller=Auth&action=mostrarLogin');
-            exit;
+            header('Location: ?controller=Auth&action=mostrarLogin'); exit;
 
         } catch (DomainException|InvalidArgumentException $e) {
             $_SESSION['error'] = $e->getMessage();
-            header('Location: ?controller=Auth&action=mostrarRegistro');
-            exit;
+            header('Location: ?controller=Auth&action=mostrarRegistro'); exit;
 
         } catch (Throwable $e) {
             $_SESSION['error'] = 'No se pudo registrar el usuario.';
-            header('Location: ?controller=Auth&action=mostrarRegistro');
-            exit;
+            header('Location: ?controller=Auth&action=mostrarRegistro'); exit;
         }
     }
 
@@ -70,45 +73,39 @@ class AuthController {
 
     public function login(): void {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            header('Location: ?controller=Auth&action=mostrarLogin');
-            exit;
+            header('Location: ?controller=Auth&action=mostrarLogin'); exit;
         }
 
-        $email    = trim($_POST['email'] ?? '');
+        $email    = strtolower(trim($_POST['email'] ?? ''));
         $password = $_POST['password'] ?? '';
 
         if ($email === '' || $password === '') {
             $_SESSION['error'] = 'Debes completar todos los campos.';
-            header('Location: ?controller=Auth&action=mostrarLogin');
-            exit;
+            header('Location: ?controller=Auth&action=mostrarLogin'); exit;
         }
 
         try {
             $usuario = $this->auth->login($email, $password);
 
-            // Seguridad: prevenir fijacion de sesion
-            session_regenerate_id(true);
+            // (Opcional) bloquear inactivos si tu tabla tiene 'activo'
+            if (isset($usuario['activo']) && (int)$usuario['activo'] !== 1) {
+                $_SESSION['error'] = 'Tu cuenta está inactiva.';
+                header('Location: ?controller=Auth&action=mostrarLogin'); exit;
+            }
 
-            $_SESSION['user'] = [
-                'id'    => (int)($usuario['id'] ?? 0),
-                'name'  => $usuario['nombre'] ?? '',
-                'rol'   => $usuario['rol'] ?? '',
-                'email' => $usuario['email'] ?? '',
-            ];
+            // Guarda sesión centralizada (id, name, email, rol)
+            set_user_session($usuario);
             unset($_SESSION['error']);
 
-            header('Location: ?controller=Home&action=index');
-            exit;
+            header('Location: ?controller=Home&action=index'); exit;
 
         } catch (DomainException $e) {
-            $_SESSION['error'] = 'Email o contrasena incorrectos.';
-            header('Location: ?controller=Auth&action=mostrarLogin');
-            exit;
+            $_SESSION['error'] = 'Email o contraseña incorrectos.';
+            header('Location: ?controller=Auth&action=mostrarLogin'); exit;
 
         } catch (Throwable $e) {
             $_SESSION['error'] = 'Error en el inicio de sesion.';
-            header('Location: ?controller=Auth&action=mostrarLogin');
-            exit;
+            header('Location: ?controller=Auth&action=mostrarLogin'); exit;
         }
     }
 
@@ -117,23 +114,9 @@ class AuthController {
             session_start();
         }
 
-        $_SESSION = [];
+        // usa el helper para limpiar todo prolijo
+        clear_session();
 
-        if (ini_get('session.use_cookies')) {
-            $params = session_get_cookie_params();
-            setcookie(
-                session_name(),
-                '',
-                time() - 42000,
-                $params['path'],
-                $params['domain'],
-                $params['secure'],
-                $params['httponly']
-            );
-        }
-
-        session_destroy();
-        header('Location: ?controller=Auth&action=mostrarLogin');
-        exit;
+        header('Location: ?controller=Auth&action=mostrarLogin'); exit;
     }
 }

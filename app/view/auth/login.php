@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/../../core/auth_session.php';
+
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -54,6 +56,26 @@ unset($_SESSION['error'], $_SESSION['success']);
 </head>
 
 <body class="bg-slate-100 text-slate-900 min-h-screen flex items-center justify-center font-sans">
+  <nav class="absolute right-6 top-6 flex items-center gap-3 text-sm text-slate-600">
+    <?php if (is_logged()): ?>
+      <span>Hola, <?= htmlspecialchars((string)(current_user()['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
+
+      <?php if ((current_user()['rol'] ?? '') === ROLE_ADMIN): ?>
+        <a href="?controller=Usuario&action=index" class="rounded-lg bg-brand px-3 py-1 text-white hover:bg-brand/90">
+          Usuarios
+        </a>
+      <?php endif; ?>
+
+      <a href="?controller=Auth&action=logout" class="rounded-lg border border-brand px-3 py-1 text-brand hover:bg-brand/10">
+        Salir
+      </a>
+    <?php else: ?>
+      <a href="?controller=Auth&action=mostrarLogin" class="rounded-lg border border-brand px-3 py-1 text-brand hover:bg-brand/10">
+        Ingresar
+      </a>
+    <?php endif; ?>
+  </nav>
+
   <main class="w-full max-w-6xl px-4">
     <section class="flex items-center justify-center py-10">
       <div class="w-full max-w-sm rounded-3xl bg-white p-8 text-center shadow-xl shadow-slate-900/5">

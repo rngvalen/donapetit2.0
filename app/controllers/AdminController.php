@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/controller.php';
 require_once __DIR__ . '/../model/model.php';
 require_once __DIR__ . '/../model/Producto.php';
+require_once __DIR__ . '/../core/auth_session.php';
 
 /**
  * Controlador del panel principal de administracion.
@@ -17,6 +18,8 @@ class AdminController extends Controller
      */
     public function principal(): void
     {
+        requireRole(ROLE_ADMIN);
+
         $productos = Producto::all(500, 0);
         $normalizados = array_map([$this, 'normalizeProducto'], $productos);
 
@@ -52,6 +55,8 @@ class AdminController extends Controller
 
     public function notificationSettings(): void
     {
+        requireRole(ROLE_ADMIN);
+
         $radioMin = 1;
         $radioMax = 25;
         $radioActual = 5;
@@ -320,7 +325,77 @@ class AdminController extends Controller
      * @param array<int,array<string,mixed>> $productos Coleccion normalizada.
      * @return array<int,array<string,mixed>> Productos con stock bajo.
      */
-    
+    private function filterLowStock(array $productos): array
+    {
+        $filtrados = array_filter(
+            $productos,
+            static function (array $producto): bool {
+                $cantidad = $producto['cantidad'] ?? null;
+                return $cantidad !== null && $cantidad <= 5;
+            }
+        );
+
+        usort(
+            $filtrados,
+            static function (array $a, array $b): int {
+                $cantidadA = $a['cantidad'] ?? PHP_INT_MAX;
+                $cantidadB = $b['cantidad'] ?? PHP_INT_MAX;
+
+                if ($cantidadA === $cantidadB) {
+                    return strcmp($a['nombre'] ?? '', $b['nombre'] ?? '');
+                }
+
+                return $cantidadA <=> $cantidadB;
+            }
+        );
+
+        return array_values($filtrados);
+    }
+
+    /**
+     * Selecciona productos que vencen en los proximos siete dias.
+     *
+     * @param array<int,array<string,mixed>> $productos Coleccion normalizada.
+     * @return array<int,array<string,mixed>> Productos proximos a vencer.
+     */
+    private function filterExpiring(array $productos): array
+    {
+        $today = new \DateTimeImmutable('today');
+        $limit = $today->modify('+7 days');
+
+        $filtrados = array_filter(
+            $productos,
+            static function (array $producto) use ($today, $limit): bool {
+                $fecha = $producto['fecha_vencimiento'] ?? null;
+                if (!$fecha instanceof \DateTimeImmutable) {
+                    return false;
+                }
+
+                if ($fecha < $today) {
+                    return false;
+                }
+
+                return $fecha <= $limit;
+            }
+        );
+
+        usort(
+            $filtrados,
+            static function (array $a, array $b): int {
+                $fechaA = $a['fecha_vencimiento'] ?? null;
+                $fechaB = $b['fecha_vencimiento'] ?? null;
+
+                if ($fechaA instanceof \DateTimeImmutable && $fechaB instanceof \DateTimeImmutable) {
+                    return $fechaA <=> $fechaB;
+                }
+
+                return strcmp($a['nombre'] ?? '', $b['nombre'] ?? '');
+            }
+        );
+
+        return array_values($filtrados);
+    }
+
     /**
      * Construye una linea de tiempo con los ultimos productos registrados.
      *

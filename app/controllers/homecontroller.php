@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/controller.php';
+require_once __DIR__ . '/../core/auth_session.php';
 require_once __DIR__ . '/../model/donacion.php';
 
 /**
@@ -16,12 +17,9 @@ class HomeController extends Controller
      */
     public function index(): void
     {
-        if (!isset($_SESSION['user'])) {
-            header('Location: ?controller=Auth&action=mostrarLogin');
-            exit;
-        }
-
-        $userName = $_SESSION['user']['name'];
+        requireLogin();
+        $usuario = current_user() ?? [];
+        $userName = $usuario['name'] ?? 'Usuario';
 
         $this->render('home.index', compact('userName'));
     }
@@ -33,12 +31,9 @@ class HomeController extends Controller
      */
     public function statics(): void
     {
-        if (!isset($_SESSION['user'])) {
-            header('Location: ?controller=Auth&action=mostrarLogin');
-            exit;
-        }
-
-        $userName = $_SESSION['user']['name'];
+        requireLogin();
+        $usuario = current_user() ?? [];
+        $userName = $usuario['name'] ?? 'Usuario';
         $stats = $this->buildStatisticsContext();
 
         $this->render('statics.statics_main', array_merge($stats, compact('userName')));

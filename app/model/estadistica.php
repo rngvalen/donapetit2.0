@@ -1,5 +1,5 @@
 <?php
-require_once "Model.php";
+require_once __DIR__ . '/model.php';
 
 class Estadistica extends Model {
     // Nombre de la tabla

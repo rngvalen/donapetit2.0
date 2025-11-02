@@ -9,6 +9,8 @@ class Controller
      */
     protected function render(string $view, array $data = []): void
     {
+        require_once __DIR__ . '/../core/auth_session.php';
+
         extract($data);
 
         $viewFile = __DIR__ . '/../view/' . str_replace('.', '/', $view) . '.php';

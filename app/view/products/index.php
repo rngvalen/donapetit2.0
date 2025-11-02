@@ -25,10 +25,12 @@ unset($_SESSION['success'], $_SESSION['error']);
       <p class="text-sm text-slate-600">Pagina <?php echo (int)$page; ?></p>
     </div>
     <!-- Botón para ir al formulario de creación de producto -->
-    <a href="index.php?controller=Producto&action=create"
-       class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-white shadow hover:bg-emerald-700">
-      <span>Nuevo producto</span>
-    </a>
+    <?php if (can('productos.crear')): ?>
+      <a href="index.php?controller=Producto&action=create"
+         class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-white shadow hover:bg-emerald-700">
+        <span>Nuevo producto</span>
+      </a>
+    <?php endif; ?>
   </header>
 
   <!-- Muestra mensaje de éxito si existe -->
@@ -95,13 +97,15 @@ unset($_SESSION['success'], $_SESSION['error']);
                 <a class="text-sky-600 hover:underline mr-3" href="index.php?controller=Producto&action=show&id=<?php echo urlencode((string)($producto['id_producto'] ?? '')); ?>">
                   Ver
                 </a>
-                <a class="text-amber-600 hover:underline mr-3" href="index.php?controller=Producto&action=edit&id=<?php echo urlencode((string)($producto['id_producto'] ?? '')); ?>">
-                  Editar
-                </a>
-                <a class="text-red-600 hover:underline" href="index.php?controller=Producto&action=destroy&id=<?php echo urlencode((string)($producto['id_producto'] ?? '')); ?>"
-                   onclick="return confirm('Eliminar producto?');">
-                  Eliminar
-                </a>
+                <?php if (can('productos.crear')): ?>
+                  <a class="text-amber-600 hover:underline mr-3" href="index.php?controller=Producto&action=edit&id=<?php echo urlencode((string)($producto['id_producto'] ?? '')); ?>">
+                    Editar
+                  </a>
+                  <a class="text-red-600 hover:underline" href="index.php?controller=Producto&action=destroy&id=<?php echo urlencode((string)($producto['id_producto'] ?? '')); ?>"
+                     onclick="return confirm('Eliminar producto?');">
+                    Eliminar
+                  </a>
+                <?php endif; ?>
               </td>
             </tr>
           <?php endforeach; ?>
