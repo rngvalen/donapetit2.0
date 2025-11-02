@@ -1,67 +1,43 @@
 <?php
-require_once __DIR__ . '/UserRepository.php';
+require_once __DIR__ . '/authservice.php';
 
-class AuthService {
-    private $users;
+class Auth {
+    private $svc;
+    private $lastError = null;
 
     public function __construct() {
-        $this->users = new UserRepository();
+        $this->svc = new AuthService();
     }
 
-    public function register(
-        string $nombre,
-        string $email,
-        string $password,
-        ?string $rol = 'donante',
-        ?string $telefono = null,
-        ?string $latitud = null,
-        ?string $longitud = null
-    ): int {
-        $email = strtolower(trim($email));
-
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            throw new InvalidArgumentException("Email inválido");
-        }
-        if (strlen($password) < 8) {
-            throw new InvalidArgumentException("La contraseña debe tener al menos 8 caracteres");
-        }
-        if ($this->users->findByEmail($email)) {
-            throw new DomainException("El email ya está registrado");
-        }
-
-        $hash = password_hash($password, PASSWORD_DEFAULT);
-
-        return $this->users->create([
-            'nombre'        => $nombre,
-            'email'         => $email,
-            'password_hash' => $hash,
-            'rol'           => $rol ?? 'donante',
-            'telefono'      => $telefono,
-            'latitud'       => $latitud,
-            'longitud'      => $longitud,
-            'activo'        => 1,
-        ]);
+    public function getLastError() {
+        return $this->lastError;
     }
 
-    public function login(string $email, string $password): array {
-        $email = strtolower(trim($email));
-        $user  = $this->users->findByEmail($email);
-
-        if (!$user || !password_verify($password, $user['password_hash'])) {
-            throw new DomainException("Credenciales inválidas");
+    public function registrarUsuario($nombre, $email, $contrasena, $rol = 'donante', $telefono = null, $latitud = null, $longitud = null) {
+        $this->lastError = null;
+        try {
+            $this->svc->register($nombre, $email, $contrasena, $rol, $telefono, $latitud, $longitud);
+            return true;
+        } catch (Throwable $e) {
+            $this->lastError = $e->getMessage();
+            return false;
         }
+    }
 
-        // Rehash transparente si el algoritmo/costo cambió
-        if (password_needs_rehash($user['password_hash'], PASSWORD_DEFAULT)) {
-            $new = password_hash($password, PASSWORD_DEFAULT);
-            $this->users->updatePasswordHash((int)$user['id'], $new);
-            $user['password_hash'] = $new;
+    public function usuarioPorEmail($email) {
+        // Compatibilidad con codigo antiguo.
+        require_once __DIR__ . '/usuario.php';
+        $repo = new UserRepository();
+        return $repo->findByEmail($email);
+    }
+
+    public function login($email, $password) {
+        $this->lastError = null;
+        try {
+            return $this->svc->login($email, $password);
+        } catch (Throwable $e) {
+            $this->lastError = $e->getMessage();
+            return false;
         }
-
-        if (isset($user['activo']) && (int)$user['activo'] !== 1) {
-            throw new DomainException("Cuenta inactiva");
-        }
-
-        return $user;
     }
 }

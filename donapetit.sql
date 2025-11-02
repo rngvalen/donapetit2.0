@@ -295,7 +295,7 @@ CREATE TABLE `usuarios` (
 --
 
 INSERT INTO `usuarios` (`id_usuario`, `Nombre`, `Email`, `contrasena`, `rol`, `telefono`, `Latitud`, `Longitud`, `activo`) VALUES
-(2, 'TestUser', 'test@example.com', '$2y$10$Rn59n7lAywj4Tcc3sAsOj.tYh2HA6VQeDPsbc7YMM2/19C3E8asZ2', 'donante', '123456789', 0.00000000, 0.00000000, '1'),
+(2, 'admin', 'admin@gmail.com', '$2y$10$v1TzDlNdr7WzDDB/faRL3OedMw795ot8p04vBBECmVwXrsINucYka', 'administrador', '123456789', 0.00000000, 0.00000000, '1'),
 (3, 'Benjamin', 'ivanluxen76@gmail.com', '$2y$10$5v8ExOwsB0QIFwWIrMJZQO5Lp7lz3Et6ZWsM4B58F7BQfp2x7QPKu', 'donante', '3644883178', -27.44828195, -58.98502021, '1'),
 (4, 'Benjamin', 'ivanluxen@gmail.com', '$2y$10$COopMyyoKRUB.ZD/jAq0aOqVq/mvhY8/WR/owWYW.zlwfr7TmrnIe', 'donante', '3644883178', -27.44827068, -58.98504788, '1');
 

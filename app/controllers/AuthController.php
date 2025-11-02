@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/../model/AuthService.php';
+require_once __DIR__ . '/../model/authservice.php';
 
 class AuthController {
     private $auth;
@@ -48,7 +48,7 @@ class AuthController {
                 $longitud !== '' ? $longitud : null
             );
 
-            $_SESSION['success'] = 'Registro exitoso. Ya podés iniciar sesión.';
+            $_SESSION['success'] = 'Registro exitoso. Ya podes iniciar sesion.';
             header('Location: ?controller=Auth&action=mostrarLogin');
             exit;
 
@@ -86,7 +86,7 @@ class AuthController {
         try {
             $usuario = $this->auth->login($email, $password);
 
-            // Seguridad: prevenir fijación de sesión
+            // Seguridad: prevenir fijacion de sesion
             session_regenerate_id(true);
 
             $_SESSION['user'] = [
@@ -101,12 +101,12 @@ class AuthController {
             exit;
 
         } catch (DomainException $e) {
-            $_SESSION['error'] = 'Email o contraseña incorrectos.';
+            $_SESSION['error'] = 'Email o contrasena incorrectos.';
             header('Location: ?controller=Auth&action=mostrarLogin');
             exit;
 
         } catch (Throwable $e) {
-            $_SESSION['error'] = 'Error en el inicio de sesión.';
+            $_SESSION['error'] = 'Error en el inicio de sesion.';
             header('Location: ?controller=Auth&action=mostrarLogin');
             exit;
         }
