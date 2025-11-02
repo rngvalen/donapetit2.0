@@ -27,7 +27,7 @@ class Profilecontroller extends Controller
     }
 
     /**
-     * Guarda los datos adicionales del donante
+     * Guarda los datos adicionales del donante + dirección
      */
     public function guardarDonante(): void
     {
@@ -39,8 +39,13 @@ class Profilecontroller extends Controller
         $userId = $_SESSION['user']['id'];
         $nombreComercial = trim($_POST['nombre_comercial'] ?? '');
         $cuit = trim($_POST['cuit'] ?? '');
+        $nombreCalle = trim($_POST['nombre_calle'] ?? '');
+        $numCalle = trim($_POST['num_calle'] ?? '');
+        $latitud = trim($_POST['latitud'] ?? '');
+        $longitud = trim($_POST['longitud'] ?? '');
 
-        if ($nombreComercial === '' || $cuit === '') {
+        // Validación
+        if ($nombreComercial === '' || $cuit === '' || $nombreCalle === '' || $numCalle === '') {
             $_SESSION['error'] = 'Todos los campos son obligatorios.';
             header('Location: ?controller=Profile&action=completarPerfil');
             exit;
@@ -49,25 +54,42 @@ class Profilecontroller extends Controller
         try {
             $db = new Database();
             $conn = $db->getConnection();
+            
+            // Iniciar transacción
+            $conn->beginTransaction();
 
+            // 1. Insertar en tabla donante
             $sql = "INSERT INTO donante (id_usu_donante, nom_comercial, CUIT) 
                     VALUES (:id, :nombre, :cuit)";
             $stmt = $conn->prepare($sql);
             $stmt->bindParam(':id', $userId);
             $stmt->bindParam(':nombre', $nombreComercial);
             $stmt->bindParam(':cuit', $cuit);
+            $stmt->execute();
 
-            if ($stmt->execute()) {
-                $_SESSION['success'] = 'Perfil completado exitosamente.';
-                header('Location: ?controller=Home&action=index');
-                exit;
-            }
+            // 2. Insertar en tabla direcciones
+            $sqlDir = "INSERT INTO direcciones (id_usuario_direcc, nom_calle, num_calle, Latitud, Longitud) 
+                       VALUES (:id, :calle, :numero, :lat, :lng)";
+            $stmtDir = $conn->prepare($sqlDir);
+            $stmtDir->bindParam(':id', $userId);
+            $stmtDir->bindParam(':calle', $nombreCalle);
+            $stmtDir->bindParam(':numero', $numCalle);
+            $stmtDir->bindParam(':lat', $latitud);
+            $stmtDir->bindParam(':lng', $longitud);
+            $stmtDir->execute();
 
-            $_SESSION['error'] = 'No se pudo guardar el perfil.';
-            header('Location: ?controller=Profile&action=completarPerfil');
+            // Confirmar transacción
+            $conn->commit();
+
+            $_SESSION['success'] = 'Perfil completado exitosamente.';
+            header('Location: ?controller=Home&action=index');
             exit;
 
         } catch (PDOException $e) {
+            // Revertir en caso de error
+            if ($conn->inTransaction()) {
+                $conn->rollBack();
+            }
             error_log("Error al guardar donante: " . $e->getMessage());
             $_SESSION['error'] = 'Error al guardar el perfil.';
             header('Location: ?controller=Profile&action=completarPerfil');
@@ -76,7 +98,7 @@ class Profilecontroller extends Controller
     }
 
     /**
-     * Guarda los datos adicionales del receptor
+     * Guarda los datos adicionales del receptor + dirección
      */
     public function guardarReceptor(): void
     {
@@ -89,8 +111,13 @@ class Profilecontroller extends Controller
         $numRenacom = trim($_POST['num_renacom'] ?? '');
         $nombreInstitucion = trim($_POST['nom_institucion'] ?? '');
         $responsable = trim($_POST['responsable'] ?? '');
+        $nombreCalle = trim($_POST['nombre_calle'] ?? '');
+        $numCalle = trim($_POST['num_calle'] ?? '');
+        $latitud = trim($_POST['latitud'] ?? '');
+        $longitud = trim($_POST['longitud'] ?? '');
 
-        if ($numRenacom === '' || $nombreInstitucion === '' || $responsable === '') {
+        // Validación
+        if ($numRenacom === '' || $nombreInstitucion === '' || $responsable === '' || $nombreCalle === '' || $numCalle === '') {
             $_SESSION['error'] = 'Todos los campos son obligatorios.';
             header('Location: ?controller=Profile&action=completarPerfil');
             exit;
@@ -99,7 +126,11 @@ class Profilecontroller extends Controller
         try {
             $db = new Database();
             $conn = $db->getConnection();
+            
+            // Iniciar transacción
+            $conn->beginTransaction();
 
+            // 1. Insertar en tabla receptor
             $sql = "INSERT INTO receptor (id_usu_receptor, num_renacom, nom_institucion, responsable) 
                     VALUES (:id, :renacom, :institucion, :responsable)";
             $stmt = $conn->prepare($sql);
@@ -107,18 +138,31 @@ class Profilecontroller extends Controller
             $stmt->bindParam(':renacom', $numRenacom);
             $stmt->bindParam(':institucion', $nombreInstitucion);
             $stmt->bindParam(':responsable', $responsable);
+            $stmt->execute();
 
-            if ($stmt->execute()) {
-                $_SESSION['success'] = 'Perfil completado exitosamente.';
-                header('Location: ?controller=Home&action=index');
-                exit;
-            }
+            // 2. Insertar en tabla direcciones
+            $sqlDir = "INSERT INTO direcciones (id_usuario_direcc, nom_calle, num_calle, Latitud, Longitud) 
+                       VALUES (:id, :calle, :numero, :lat, :lng)";
+            $stmtDir = $conn->prepare($sqlDir);
+            $stmtDir->bindParam(':id', $userId);
+            $stmtDir->bindParam(':calle', $nombreCalle);
+            $stmtDir->bindParam(':numero', $numCalle);
+            $stmtDir->bindParam(':lat', $latitud);
+            $stmtDir->bindParam(':lng', $longitud);
+            $stmtDir->execute();
 
-            $_SESSION['error'] = 'No se pudo guardar el perfil.';
-            header('Location: ?controller=Profile&action=completarPerfil');
+            // Confirmar transacción
+            $conn->commit();
+
+            $_SESSION['success'] = 'Perfil completado exitosamente.';
+            header('Location: ?controller=Home&action=index');
             exit;
 
         } catch (PDOException $e) {
+            // Revertir en caso de error
+            if ($conn->inTransaction()) {
+                $conn->rollBack();
+            }
             error_log("Error al guardar receptor: " . $e->getMessage());
             $_SESSION['error'] = 'Error al guardar el perfil.';
             header('Location: ?controller=Profile&action=completarPerfil');
