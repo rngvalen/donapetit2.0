@@ -10,7 +10,7 @@
     tailwind.config = {
       theme: {
         extend: {
-          colors: { brand: '#3D538F' },
+          colors: { brand: '#0F1629' },
           fontFamily: { sans: ['Montserrat', 'Inter', 'system-ui', 'sans-serif'] },
           boxShadow: { soft: '0 20px 60px rgba(15,22,41,.12)' }
         }
