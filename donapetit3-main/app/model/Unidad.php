@@ -31,4 +31,3 @@ class Unidad extends Model
         }, $rows));
     }
 }
-

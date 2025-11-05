@@ -401,4 +401,3 @@ $hasProducts = $totalProducts > 0;
 </section>
 
 <script defer src="/donapetit2/public/assets/js/admin_principal.js"></script>
-

@@ -24,7 +24,7 @@ if (!is_file(($_SERVER['DOCUMENT_ROOT'] ?? '') . $logoPath)) {
 }
 
 $registerUrl = '?controller=Auth&action=mostrarRegistro';
-$forgotUrl = '#';
+$forgotUrl = '?controller=Auth&action=mostrarRecuperacion';
 
 $errorMessage = $_SESSION['error'] ?? null;
 $successMessage = $_SESSION['success'] ?? null;
@@ -43,7 +43,7 @@ unset($_SESSION['error'], $_SESSION['success']);
     tailwind.config = {
       theme: {
         extend: {
-          colors: { brand: '#3D538F' },
+          colors: { brand: '#0F1629' },
           fontFamily: { sans: ['Montserrat', 'Inter', 'system-ui', 'sans-serif'] },
           boxShadow: { soft: '0 20px 60px rgba(15,22,41,.12)' }
         }
@@ -87,14 +87,14 @@ unset($_SESSION['error'], $_SESSION['success']);
           </div>
 
           <div>
-            <label for="password" class="text-sm font-medium text-slate-700">Contrasena</label>
+            <label for="password" class="text-sm font-medium text-slate-700">Contraseña</label>
             <input id="password" name="password" type="password" required placeholder="Contrasena"
                    class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-brand focus:ring-brand/60" />
           </div>
 
           <div class="flex items-center justify-between pt-1">
             <a href="<?= $forgotUrl ?>" class="text-sm font-medium text-brand hover:text-brand/80">
-              Olvidaste tu contrasena?
+              Olvidaste tu contraseña?
             </a>
           </div>
 

@@ -85,4 +85,3 @@ class Receptor extends Model {
         return $this->delete($id);
     }
 }
-

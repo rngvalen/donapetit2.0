@@ -3,22 +3,16 @@ $user = htmlspecialchars($userName ?? 'Usuario', ENT_QUOTES, 'UTF-8');
 
 $cards = [
     [
-        'title' => 'Cargar producto',
-        'description' => 'Agrega nuevas donaciones indicando stock, vencimiento y comentarios.',
-        'href' => 'index.php?controller=Producto&action=create',
-        'cta' => 'Ir al formulario',
+        'title' => 'Encargar productos',
+        'description' => 'Solicita donaciones disponibles de productos que necesites.',
+        'href' => 'index.php?controller=Producto&action=solicitar',
+        'cta' => 'Ver disponibles',
     ],
     [
-        'title' => 'Mis productos',
-        'description' => 'Consulta el estado, actualiza datos y reserva donaciones.',
-        'href' => 'index.php?controller=Producto&action=index',
-        'cta' => 'Ver listado',
-    ],
-    [
-        'title' => 'Dashboard',
-        'description' => 'Consulta metricas sobre donaciones, stock y frecuencia mensual.',
-        'href' => 'index.php?controller=Home&action=statics',
-        'cta' => 'Ver dashboard',
+        'title' => 'Mis solicitudes',
+        'description' => 'Consulta el estado de tus pedidos y gestiona reservas.',
+        'href' => 'index.php?controller=Producto&action=misSolicitudes',
+        'cta' => 'Ver solicitudes',
     ],
     [
         'title' => 'Mapa de donantes',
@@ -32,10 +26,10 @@ $cards = [
   <h1 class="text-3xl font-extrabold text-slate-900">
     Bienvenido <span class="italic text-brand/90"><?php echo $user; ?></span>
   </h1>
-  <p class="mt-3 text-slate-600">Gestiona tus donaciones y hace seguimiento de los productos disponibles.</p>
+  <p class="mt-3 text-slate-600">Encuentra y solicita donaciones de alimentos disponibles.</p>
 </section>
 
-<section class="mx-auto grid max-w-5xl gap-6 py-8 sm:grid-cols-2 lg:grid-cols-4">
+<section class="mx-auto grid max-w-5xl gap-6 py-8 sm:grid-cols-2 lg:grid-cols-3">
   <?php foreach ($cards as $card): ?>
     <?php
     $title = htmlspecialchars($card['title'], ENT_QUOTES, 'UTF-8');

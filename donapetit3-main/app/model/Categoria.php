@@ -34,4 +34,3 @@ class Categoria extends Model
         ));
     }
 }
-

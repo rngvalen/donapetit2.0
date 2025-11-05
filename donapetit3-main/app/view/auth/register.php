@@ -39,7 +39,7 @@ unset($_SESSION['error']);
   tailwind.config = {
     theme: {
       extend: {
-        colors: { brand: '#3D538F' },
+        colors: { brand: '#0F1629' },
         fontFamily: { sans: ['Montserrat','Inter','system-ui','sans-serif'] },
         boxShadow: { soft: '0 20px 60px rgba(15,22,41,.12)' }
       }
@@ -85,7 +85,7 @@ unset($_SESSION['error']);
         </div>
 
         <div>
-          <label class="text-sm font-medium text-slate-700" for="contrasena">Contrasena</label>
+          <label class="text-sm font-medium text-slate-700" for="contrasena">Contraseña</label>
           <input type="password" name="contrasena" id="contrasena" required placeholder="Minimo 8 caracteres"
             class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:ring-brand/60 focus:outline-none">
           <p id="passHelp" class="text-xs text-red-500 mt-1 hidden">
@@ -94,7 +94,7 @@ unset($_SESSION['error']);
         </div>
 
         <div>
-          <label class="text-sm font-medium text-slate-700" for="confirmar">Confirmar contrasena</label>
+          <label class="text-sm font-medium text-slate-700" for="confirmar">Confirmar contraseña</label>
           <input type="password" id="confirmar" required placeholder="Repetir contrasena"
             class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:ring-brand/60 focus:outline-none">
           <p id="confirmHelp" class="text-xs text-red-500 mt-1 hidden">
@@ -103,7 +103,7 @@ unset($_SESSION['error']);
         </div>
 
         <div>
-          <label class="text-sm font-medium text-slate-700" for="telefono">Telefono (opcional)</label>
+          <label class="text-sm font-medium text-slate-700" for="telefono">Telefono</label>
           <input id="telefono" name="telefono" placeholder="Ej: 3794123456"
             class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:ring-brand/60 focus:outline-none">
         </div>
