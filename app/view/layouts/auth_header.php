@@ -19,21 +19,10 @@ $authBodyClass = $authBodyClass
   <title><?php echo htmlspecialchars($authPageTitle, ENT_QUOTES, 'UTF-8'); ?></title>
   <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: { brand: '#3D538F' },
-          fontFamily: { sans: ['Montserrat', 'Inter', 'system-ui', 'sans-serif'] },
-          boxShadow: { soft: '0 20px 60px rgba(15,22,41,.12)' }
-        }
-      }
-    };
-  </script>
+  <link rel="stylesheet" href="assets/css/tailwind.css">
   <style>*{transition:all .15s ease-in-out}</style>
 </head>
-<body class="<?php echo htmlspecialchars($authBodyClass, ENT_QUOTES, 'UTF-8'); ?>">
+<body data-theme="auth" class="<?php echo htmlspecialchars($authBodyClass, ENT_QUOTES, 'UTF-8'); ?>">
   <nav class="absolute right-6 top-6 flex items-center gap-3 text-sm text-slate-600">
     <?php if ($isLogged): ?>
       <span>

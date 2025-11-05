@@ -59,18 +59,7 @@ $initial = strtoupper(mb_substr((string)$userName, 0, 1, 'UTF-8') ?: '?');
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>DonAppetit</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
-                    colors: { brand: { DEFAULT: '#0f1629' } },
-                    boxShadow: { soft: '0 8px 30px rgba(0,0,0,.08)' }
-                }
-            }
-        }
-    </script>
+    <link rel="stylesheet" href="assets/css/tailwind.css">
     <style>
         * { transition: all .15s ease-in-out }
     </style>
