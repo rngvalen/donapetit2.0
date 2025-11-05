@@ -1,0 +1,30 @@
+# Node.js dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# PHP Composer dependencies
+vendor/
+composer.phar
+
+# Environment and local settings
+.env
+.env.local
+.env.*.local
+.vscode/
+.idea/
+
+# OS-specific junk files
+.DS_Store
+Thumbs.db
+
+# Build artifacts and caches
+public/assets/css/tailwind.css
+dist/
+build/
+.cache/
+
+# Miscellaneous
+*.log
