@@ -192,8 +192,24 @@ class ProductoController extends Controller
     public function store(): void
     {
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
-            $this->redirect('index.php?controller=Producto&action=create');
+            $this->redirect('?controller=Producto&action=create');
         }
+
+        // Verificar que el usuario esté logueado y sea donante
+        if (!isset($_SESSION['user'])) {
+            $_SESSION['error'] = 'Debes iniciar sesión para registrar productos.';
+            $this->redirect('?controller=Auth&action=mostrarLogin');
+            return;
+        }
+
+        $userRole = $_SESSION['user']['rol'] ?? '';
+        if ($userRole !== 'donante') {
+            $_SESSION['error'] = 'Solo los donantes pueden registrar productos.';
+            $this->redirect('?controller=Home&action=index');
+            return;
+        }
+
+        $idDonante = (int)$_SESSION['user']['id'];
 
         $nombre = trim($_POST['nombre'] ?? '');
         $unidad = trim($_POST['unidad'] ?? '');
@@ -204,91 +220,87 @@ class ProductoController extends Controller
 
         $errores = [];
 
+        // Validar nombre
         if ($nombre === '') {
             $errores[] = 'El nombre del producto es obligatorio.';
         }
+        
+        // Verificar que el producto exista en el catálogo
+        $idProducto = null;
         if ($nombre !== '') {
-            $existentes = $this->productoModel->obtenerNombresDisponibles();
-            $toLower = static function (string $value): string {
-                return function_exists('mb_strtolower') ? mb_strtolower($value, 'UTF-8') : strtolower($value);
-            };
-            $lowerNombre = $toLower($nombre);
-            $estaCatalogo = false;
-            foreach ($existentes as $existente) {
-                if ($toLower($existente) === $lowerNombre) {
-                    $estaCatalogo = true;
-                    break;
-                }
-            }
-            if (!$estaCatalogo) {
-                $errores[] = 'El producto seleccionado no existe en el catalogo. Consulta con administracion.';
+            $idProducto = $this->productoModel->obtenerIdPorNombre($nombre);
+            if ($idProducto === null) {
+                $errores[] = 'El producto seleccionado no existe en el catálogo.';
             }
         }
+
+        // Validar unidad
         if ($unidad === '') {
             $errores[] = 'La unidad es obligatoria.';
         }
 
+        // Validar cantidad
         if ($cantidad === '' || $cantidad === null) {
-            $cantidad = null;
+            $errores[] = 'La cantidad es obligatoria.';
+        } elseif (!ctype_digit((string)$cantidad) || (int)$cantidad <= 0) {
+            $errores[] = 'La cantidad debe ser un entero positivo.';
         } else {
-            if (!ctype_digit((string)$cantidad) || (int)$cantidad <= 0) {
-                $errores[] = 'La cantidad debe ser un entero positivo.';
-            } else {
-                $cantidad = (int)$cantidad;
-            }
+            $cantidad = (int)$cantidad;
         }
 
+        // Validar fecha de vencimiento
         if ($fechaVencimiento === '') {
-            $fechaVencimiento = null;
+            $errores[] = 'La fecha de vencimiento es obligatoria.';
         } else {
             $fecha = \DateTime::createFromFormat('Y-m-d', $fechaVencimiento);
             if (!$fecha || $fecha->format('Y-m-d') !== $fechaVencimiento) {
-                $errores[] = 'La fecha de vencimiento no tiene un formato valido (AAAA-MM-DD).';
+                $errores[] = 'La fecha de vencimiento no es válida.';
+            } else {
+                // Verificar que la fecha sea futura
+                $hoy = new \DateTime('today');
+                if ($fecha < $hoy) {
+                    $errores[] = 'La fecha de vencimiento debe ser futura.';
+                }
             }
         }
 
-        if ($comentarios === '') {
-            $comentarios = null;
-        }
-
+        // Validar categoría
         $categoriasMap = $this->getCategoriasMap();
         $categoriaId = null;
-        $categoriaNombre = null;
         if ($categoriaIdRaw === '' || $categoriaIdRaw === null) {
-            $errores[] = 'La categoria es obligatoria.';
+            $errores[] = 'La categoría es obligatoria.';
         } elseif (!ctype_digit((string)$categoriaIdRaw)) {
-            $errores[] = 'Categoria invalida.';
+            $errores[] = 'Categoría inválida.';
         } else {
             $categoriaId = (int)$categoriaIdRaw;
-            if (isset($categoriasMap[$categoriaId])) {
-                $categoriaNombre = $categoriasMap[$categoriaId];
-            } else {
-                $errores[] = 'La categoria seleccionada no existe.';
+            if (!isset($categoriasMap[$categoriaId])) {
+                $errores[] = 'La categoría seleccionada no existe.';
             }
         }
 
+        // Si hay errores, redirigir con mensaje
         if (!empty($errores)) {
             $_SESSION['error'] = implode(' ', $errores);
-            $this->redirect('index.php?controller=Producto&action=create');
+            $this->redirect('?controller=Producto&action=create');
+            return;
         }
 
+        // Guardar en stock_productos_donacion
         try {
-            $id = $this->productoModel->crear(
-                $nombre,
-                $unidad,
+            $idStock = $this->productoModel->registrarStock(
+                $idProducto,
+                $idDonante,
                 $cantidad,
-                $fechaVencimiento,
-                $comentarios,
-                null,
-                $categoriaId,
-                $categoriaNombre
+                $fechaVencimiento
             );
-            $_SESSION['success'] = 'Producto creado con exito (ID: ' . $id . ').';
+            
+            $_SESSION['success'] = 'Producto registrado exitosamente. Ya está disponible para donación.';
         } catch (\Throwable $exception) {
-            $_SESSION['error'] = 'No se pudo crear el producto. Intenta mas tarde.';
+            error_log("Error al registrar stock: " . $exception->getMessage());
+            $_SESSION['error'] = 'No se pudo registrar el producto. Intenta más tarde.';
         }
 
-        $this->redirect('index.php?controller=Producto&action=index');
+        $this->redirect('?controller=Producto&action=misProductos');
     }
 
     /**
@@ -543,7 +555,8 @@ class ProductoController extends Controller
 
         $this->redirect('index.php?controller=Producto&action=catalogo');
     }
-        // Normaliza y valida los datos de un producto. lo movimos de adminController hasta aca
+
+    // Normaliza y valida los datos de un producto. lo movimos de adminController hasta aca
     private function normalizeProducto(array $producto): array
     {
         $id = (string)($producto['id_producto'] ?? '');
@@ -579,7 +592,6 @@ class ProductoController extends Controller
             'fecha_vencimiento_sort' => $fecha instanceof \DateTimeImmutable ? $fecha->format('Y-m-d') : '',
         ];
     }
-
 
     private function filterLowStock(array $productos): array
     {
@@ -697,5 +709,4 @@ class ProductoController extends Controller
 
         return number_format($distancia, 1, '.', '') . ' km';
     }
-
 }

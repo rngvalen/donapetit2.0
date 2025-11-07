@@ -234,4 +234,57 @@ class Producto extends Model
         $instance = new static();
         return array_map(static fn($row) => $instance->normalizeRow($row), $rows);
     }
+
+
+    /**
+ * Registra stock de un producto para un donante específico
+ * 
+ * @param int $idProducto ID del producto del catálogo
+ * @param int $idDonante ID del usuario donante
+ * @param int $cantidad Cantidad disponible
+ * @param string|null $fechaVencimiento Fecha de vencimiento (Y-m-d)
+ * @return int ID del stock creado
+ */
+public function registrarStock(
+    int $idProducto,
+    int $idDonante,
+    int $cantidad,
+    ?string $fechaVencimiento = null
+): int {
+    self::initDb();
+    
+    $sql = "INSERT INTO stock_productos_donacion 
+            (id_producto, id_donante, stock_productos, fecha_venc) 
+            VALUES (:id_producto, :id_donante, :stock_productos, :fecha_venc)";
+    
+    $stmt = self::$db->prepare($sql);
+    $stmt->execute([
+        ':id_producto' => $idProducto,
+        ':id_donante' => $idDonante,
+        ':stock_productos' => $cantidad,
+        ':fecha_venc' => $fechaVencimiento
+    ]);
+    
+    return (int) self::$db->lastInsertId();
+}
+
+/**
+ * Busca el ID de un producto por su nombre en el catálogo
+ * 
+ * @param string $nombre Nombre del producto
+ * @return int|null ID del producto o null si no existe
+ */
+public function obtenerIdPorNombre(string $nombre): ?int
+{
+    self::initDb();
+    
+    $sql = "SELECT id_productos FROM productos WHERE comentario LIKE :nombre LIMIT 1";
+    
+    $stmt = self::$db->prepare($sql);
+    $stmt->execute([':nombre' => '%"nom_producto":"' . $nombre . '"%']);
+    
+    $result = $stmt->fetch(\PDO::FETCH_ASSOC);
+    
+    return $result ? (int)$result['id_productos'] : null;
+}
 }
