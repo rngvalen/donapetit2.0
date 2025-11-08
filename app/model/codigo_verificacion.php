@@ -1,60 +1,59 @@
 <?php
+declare(strict_types=1);
+
 require_once __DIR__ . '/model.php';
 
-/**
- * Clase CodigoVerificacion
- * Maneja las operaciones sobre la tabla `codigo_verificacion`
- */
-class CodigoVerificacion extends Model {
-    protected string $table = "codigo_verificacion";
-    protected string $pk    = "id_cod";
+class CodigoVerificacion extends Model
+{
+    protected string $table = 'codigo_verificacion';
+    protected string $pk = 'id_cod';
 
-    /**
-     * Crear un nuevo código de verificación
-     *
-     * @param int $idUsuario ID del usuario
-     * @param string $fechaExp Fecha de expiración (YYYY-MM-DD o DATETIME)
-     * @param int $activo 1 si está activo, 0 si está inactivo
-     * @return int|false ID generado o false si falla
-     */
-    public function crear($idUsuario, $fechaExp, $activo = 1) {
-        return $this->insert([
+    public function crear(int $idUsuario, string $codigo, string $fechaExpiracion, bool $activo = true): int
+    {
+        return (int)$this->insert([
             'id_usuario'       => $idUsuario,
-            'fecha_expiracion' => $fechaExp,
-            'activo'           => $activo
+            'codigo'           => $codigo,
+            'fecha_expiracion' => $fechaExpiracion,
+            'activo'           => $activo ? '1' : '0',
         ]);
     }
 
-    /**
-     * Actualizar estado (activar o desactivar un código)
-     *
-     * @param int $id ID del código
-     * @param int $activo 1 = activo, 0 = inactivo
-     * @return bool
-     */
-    public function actualizarEstado($id, $activo) {
-        return $this->update($id, ['activo' => $activo]);
+    public function desactivarCodigosActivos(int $idUsuario): void
+    {
+        self::initDb();
+        $stmt = self::$db->prepare(
+            "UPDATE {$this->table} SET activo = '0' WHERE id_usuario = :id"
+        );
+        $stmt->execute([':id' => $idUsuario]);
     }
 
-    /**
-     * Buscar código por usuario
-     *
-     * @param int $idUsuario ID del usuario
-     * @return array|null
-     */
-    public function buscarPorUsuario($idUsuario) {
-        $stmt = self::$db->prepare("SELECT * FROM {$this->table} WHERE id_usuario = ?");
-        $stmt->execute([$idUsuario]);
-        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    public function buscarCodigoActivo(int $idUsuario, string $codigo): ?array
+    {
+        self::initDb();
+        $stmt = self::$db->prepare(
+            "SELECT *
+             FROM {$this->table}
+             WHERE id_usuario = :id
+               AND codigo = :codigo
+               AND activo = '1'
+               AND fecha_expiracion > NOW()
+             LIMIT 1"
+        );
+        $stmt->execute([
+            ':id' => $idUsuario,
+            ':codigo' => $codigo,
+        ]);
+
+        $row = $stmt->fetch(\PDO::FETCH_ASSOC);
+        return $row ?: null;
     }
 
-    /**
-     * Eliminar un código
-     *
-     * @param int $id ID del código
-     * @return bool
-     */
-    public function eliminarCodigo($id) {
-        return $this->delete($id);
+    public function desactivarPorId(int $idCodigo): void
+    {
+        self::initDb();
+        $stmt = self::$db->prepare(
+            "UPDATE {$this->table} SET activo = '0' WHERE {$this->pk} = :id"
+        );
+        $stmt->execute([':id' => $idCodigo]);
     }
 }

@@ -13,8 +13,10 @@ composer.phar
 .env
 .env.local
 .env.*.local
+.envrc
 .vscode/
 .idea/
+config/email.php
 
 # OS-specific junk files
 .DS_Store

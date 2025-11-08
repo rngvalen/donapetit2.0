@@ -56,6 +56,7 @@ INSERT INTO `categorias` (`id_categoria`, `nombre`) VALUES
 CREATE TABLE `codigo_verificacion` (
   `id_cod` int(11) NOT NULL,
   `id_usuario` int(11) NOT NULL COMMENT 'FK usuarios.id_usuario',
+  `codigo` varchar(6) NOT NULL,
   `fecha_expiracion` datetime NOT NULL,
   `activo` varchar(1) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
