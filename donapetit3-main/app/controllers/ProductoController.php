@@ -709,4 +709,32 @@ class ProductoController extends Controller
 
         return number_format($distancia, 1, '.', '') . ' km';
     }
+    /**
+ * Convierte una fecha en formato string a DateTimeImmutable
+ *
+ * @param string $fechaRaw Fecha en formato string
+ * @return \DateTimeImmutable|null Fecha convertida o null
+ */
+private function parseDate(string $fechaRaw): ?\DateTimeImmutable
+{
+    if ($fechaRaw === '') {
+        return null;
+    }
+
+    $formatos = ['Y-m-d', 'd/m/Y', 'Y/m/d', 'd-m-Y'];
+
+    foreach ($formatos as $formato) {
+        $fecha = \DateTimeImmutable::createFromFormat($formato, $fechaRaw);
+        if ($fecha !== false) {
+            return $fecha;
+        }
+    }
+
+    try {
+        return new \DateTimeImmutable($fechaRaw);
+    } catch (\Throwable $exception) {
+        return null;
+    }
+}
+
 }

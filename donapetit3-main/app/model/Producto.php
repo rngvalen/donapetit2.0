@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/model.php';
 
 /**
+ * model:   producto.php
  * Modelo Producto para administrar la tabla productos.
  */
 class Producto extends Model
@@ -235,56 +236,60 @@ class Producto extends Model
         return array_map(static fn($row) => $instance->normalizeRow($row), $rows);
     }
 
+    /**
+     * Busca el ID de un producto por su nombre en el catálogo
+     * 
+     * @param string $nombre Nombre del producto
+     * @return int|null ID del producto o null si no existe
+     */
+    public function obtenerIdPorNombre(string $nombre): ?int
+    {
+        self::initDb();
+        
+        $sql = "SELECT id_productos FROM productos WHERE comentario LIKE :nombre LIMIT 1";
+        
+        $stmt = self::$db->prepare($sql);
+        $stmt->execute(['nombre' => '%"nom_producto":"' . $nombre . '"%']);
+        
+        $result = $stmt->fetch(\PDO::FETCH_ASSOC);
+        
+        return $result ? (int)$result['id_productos'] : null;
+    }
 
     /**
- * Registra stock de un producto para un donante específico
- * 
- * @param int $idProducto ID del producto del catálogo
- * @param int $idDonante ID del usuario donante
- * @param int $cantidad Cantidad disponible
- * @param string|null $fechaVencimiento Fecha de vencimiento (Y-m-d)
- * @return int ID del stock creado
- */
-public function registrarStock(
-    int $idProducto,
-    int $idDonante,
-    int $cantidad,
-    ?string $fechaVencimiento = null
-): int {
-    self::initDb();
-    
-    $sql = "INSERT INTO stock_productos_donacion 
-            (id_producto, id_donante, stock_productos, fecha_venc) 
-            VALUES (:id_producto, :id_donante, :stock_productos, :fecha_venc)";
-    
-    $stmt = self::$db->prepare($sql);
-    $stmt->execute([
-        ':id_producto' => $idProducto,
-        ':id_donante' => $idDonante,
-        ':stock_productos' => $cantidad,
-        ':fecha_venc' => $fechaVencimiento
-    ]);
-    
-    return (int) self::$db->lastInsertId();
-}
-
-/**
- * Busca el ID de un producto por su nombre en el catálogo
- * 
- * @param string $nombre Nombre del producto
- * @return int|null ID del producto o null si no existe
- */
-public function obtenerIdPorNombre(string $nombre): ?int
-{
-    self::initDb();
-    
-    $sql = "SELECT id_productos FROM productos WHERE comentario LIKE :nombre LIMIT 1";
-    
-    $stmt = self::$db->prepare($sql);
-    $stmt->execute([':nombre' => '%"nom_producto":"' . $nombre . '"%']);
-    
-    $result = $stmt->fetch(\PDO::FETCH_ASSOC);
-    
-    return $result ? (int)$result['id_productos'] : null;
-}
+     * Registra stock de un producto para un donante específico
+     * Guarda en la tabla stock_productos
+     * 
+     * @param int $idProducto ID del producto (productos.id_productos)
+     * @param int $idDonante ID del usuario donante
+     * @param int $cantidad Cantidad disponible
+     * @param string|null $fechaVencimiento Fecha de vencimiento (Y-m-d)
+     * @return int ID del stock creado
+     */
+    public function registrarStock(
+        int $idProducto,
+        int $idDonante,
+        int $cantidad,
+        ?string $fechaVencimiento = null
+    ): int {
+        self::initDb();
+        
+        $sql = "INSERT INTO stock_productos 
+                (id_producto, id_donante, cantidad, fecha_venc, create_at, update_at) 
+                VALUES (:id_producto, :id_donante, :cantidad, :fecha_venc, :create_at, :update_at)";
+        
+        $now = date('Y-m-d H:i:s');
+        
+        $stmt = self::$db->prepare($sql);
+        $stmt->execute([
+            'id_producto' => $idProducto,
+            'id_donante' => $idDonante,
+            'cantidad' => $cantidad,
+            'fecha_venc' => $fechaVencimiento,
+            'create_at' => $now,
+            'update_at' => $now
+        ]);
+        
+        return (int) self::$db->lastInsertId();
+    }
 }

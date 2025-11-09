@@ -5,7 +5,7 @@ $cards = [
     [
         'title' => 'Encargar productos',
         'description' => 'Solicita donaciones disponibles de productos que necesites.',
-        'href' => 'index.php?controller=Producto&action=solicitar',
+        'href' => 'index.php?controller=Solicitud&action=solicitar',
         'cta' => 'Ver disponibles',
     ],
     [

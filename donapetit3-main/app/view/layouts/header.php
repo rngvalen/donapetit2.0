@@ -11,12 +11,12 @@ if ($menuSections === null) {
     if (isset($menuItems) && is_array($menuItems)) {
         $menuSections = ['Menu' => $menuItems];
     } else {
-        $menuSections = [
+       $menuSections = [
     'Navegacion' => [
         ['label' => 'Inicio', 'url' => 'index.php?controller=Home&action=index'],
         ['label' => 'Mis productos', 'url' => 'index.php?controller=Producto&action=misProductos'],
-        ['label' => 'Productos disponibles', 'url' => 'index.php?controller=Producto&action=productosDisponibles'],
-        ['label' => 'Mapa', 'url' => 'index.php?controller=Map&action=index'],  // ✅ AGREGADO
+        ['label' => 'Productos disponibles', 'url' => 'index.php?controller=Solicitud&action=productosDisponibles'],
+        ['label' => 'Mapa', 'url' => 'index.php?controller=Map&action=index'],
     ],
     'Cuenta' => [
         ['label' => 'Cerrar sesion', 'url' => 'index.php?controller=Auth&action=logout'],

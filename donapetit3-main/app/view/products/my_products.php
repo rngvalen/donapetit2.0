@@ -5,20 +5,7 @@ declare(strict_types=1);
  * @var array<int,array<string,mixed>> $productos
  * @var string|null $titulo
  */
-$productos = $productos ?? [
-    [
-        'id' => 1,
-        'nombre' => 'Producto de ejemplo',
-        'cantidad' => 0,
-        'vence' => '0/0',
-        'links' => [
-            'show' => '#',
-            'edit' => '#',
-            'destroy' => '#',
-        ],
-    ],
-];
-
+$productos = $productos ?? [];
 $titulo = $titulo ?? 'Mis productos';
 ?>
 
@@ -34,12 +21,33 @@ $titulo = $titulo ?? 'Mis productos';
             <?php echo htmlspecialchars($titulo, ENT_QUOTES, 'UTF-8'); ?>
         </h1>
 
-        <button type="button" class="inline-flex items-center justify-center rounded-xl border border-white/30 bg-white/10 p-2 hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70" aria-label="Menu">
-            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M3 6h18M3 12h18M3 18h18"></path>
-            </svg>
-        </button>
+        <div class="flex items-center gap-2">
+            <a href="index.php?controller=Solicitud&action=misSolicitudes" class="inline-flex items-center justify-center rounded-xl border border-white/30 bg-white/10 p-2 hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70" aria-label="Solicitudes" title="Ver solicitudes pendientes">
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+                </svg>
+            </a>
+            <button type="button" class="inline-flex items-center justify-center rounded-xl border border-white/30 bg-white/10 p-2 hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70" aria-label="Menu">
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 6h18M3 12h18M3 18h18"></path>
+                </svg>
+            </button>
+        </div>
     </header>
+
+    <?php if (isset($_SESSION['success'])): ?>
+        <div class="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            <?php echo htmlspecialchars($_SESSION['success'], ENT_QUOTES, 'UTF-8'); ?>
+            <?php unset($_SESSION['success']); ?>
+        </div>
+    <?php endif; ?>
+
+    <?php if (isset($_SESSION['error'])): ?>
+        <div class="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <?php echo htmlspecialchars($_SESSION['error'], ENT_QUOTES, 'UTF-8'); ?>
+            <?php unset($_SESSION['error']); ?>
+        </div>
+    <?php endif; ?>
 
     <?php if (!empty($productos)): ?>
         <div class="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -53,6 +61,10 @@ $titulo = $titulo ?? 'Mis productos';
                 $showUrl = is_array($links) && isset($links['show']) ? htmlspecialchars((string)$links['show'], ENT_QUOTES, 'UTF-8') : null;
                 $editUrl = is_array($links) && isset($links['edit']) ? htmlspecialchars((string)$links['edit'], ENT_QUOTES, 'UTF-8') : null;
                 $destroyUrl = is_array($links) && isset($links['destroy']) ? htmlspecialchars((string)$links['destroy'], ENT_QUOTES, 'UTF-8') : null;
+                
+                // Determinar color según stock
+                $stockBajo = $cantidad !== null && $cantidad <= 5;
+                $stockColor = $stockBajo ? 'bg-red-100 text-red-700' : 'bg-slate-50 text-slate-900';
                 ?>
                 <article class="group flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
                     <div class="mb-4 grid h-36 place-items-center rounded-xl border-2 border-dashed border-slate-200 bg-gradient-to-br from-slate-50 to-white text-slate-400 transition group-hover:from-emerald-50 group-hover:text-emerald-500">
@@ -67,9 +79,12 @@ $titulo = $titulo ?? 'Mis productos';
                     </h2>
 
                     <dl class="mt-4 grid grid-cols-2 gap-3 text-sm">
-                        <div class="flex flex-col rounded-xl bg-slate-50 px-3 py-2 text-center">
-                            <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Cantidad</dt>
-                            <dd class="text-base font-semibold text-slate-900"><?php echo htmlspecialchars($cantidadLabel, ENT_QUOTES, 'UTF-8'); ?></dd>
+                        <div class="flex flex-col rounded-xl <?php echo $stockColor; ?> px-3 py-2 text-center">
+                            <dt class="text-xs font-medium uppercase tracking-wide">Cantidad</dt>
+                            <dd class="text-base font-semibold"><?php echo htmlspecialchars($cantidadLabel, ENT_QUOTES, 'UTF-8'); ?></dd>
+                            <?php if ($stockBajo): ?>
+                                <dd class="text-xs mt-0.5">¡Stock bajo!</dd>
+                            <?php endif; ?>
                         </div>
                         <div class="flex flex-col rounded-xl bg-slate-50 px-3 py-2 text-center">
                             <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Vence</dt>
@@ -97,7 +112,7 @@ $titulo = $titulo ?? 'Mis productos';
                         </a>
                         <?php endif; ?>
                         <?php if ($destroyUrl): ?>
-                        <a href="<?php echo $destroyUrl; ?>" class="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500" onclick="return confirm('Eliminar producto?');">
+                        <a href="<?php echo $destroyUrl; ?>" class="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500" onclick="return confirm('¿Eliminar producto?');">
                             <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <polyline points="3 6 5 6 21 6"></polyline>
                                 <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
@@ -113,7 +128,7 @@ $titulo = $titulo ?? 'Mis productos';
         </div>
     <?php else: ?>
         <div class="mt-6 rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center text-sm text-slate-500">
-            Aun no cargaste productos. Usa el boton flotante para agregar el primero.
+            Aún no cargaste productos. Usa el botón flotante para agregar el primero.
         </div>
     <?php endif; ?>
 
