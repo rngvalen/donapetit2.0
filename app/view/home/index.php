@@ -1,5 +1,6 @@
 <?php
 $user = htmlspecialchars($userName ?? 'Usuario', ENT_QUOTES, 'UTF-8');
+$role = strtolower((string)($userRole ?? 'donante'));
 
 $cards = [
     [
@@ -11,14 +12,8 @@ $cards = [
     [
         'title' => 'Mis productos',
         'description' => 'Consulta el estado, actualiza datos y reserva donaciones.',
-        'href' => 'index.php?controller=Producto&action=index',
+        'href' => 'index.php?controller=Producto&action=misProductos',
         'cta' => 'Ver listado',
-    ],
-    [
-        'title' => 'Dashboard',
-        'description' => 'Consulta metricas sobre donaciones, stock y frecuencia mensual.',
-        'href' => 'index.php?controller=Home&action=statics',
-        'cta' => 'Ver dashboard',
     ],
     [
         'title' => 'Mapa de donantes',
@@ -26,7 +21,22 @@ $cards = [
         'href' => 'index.php?controller=Map&action=index',
         'cta' => 'Abrir mapa',
     ],
+    [
+        'title' => 'Dashboard',
+        'description' => 'Consulta metricas sobre donaciones, stock y frecuencia mensual.',
+        'href' => 'index.php?controller=Home&action=statics',
+        'cta' => 'Ver dashboard',
+    ],
 ];
+
+if ($role === ROLE_DONANTE) {
+    $cards[] = [
+        'title' => 'Solicitudes pendientes',
+        'description' => 'Revisa, confirma o rechaza pedidos de los receptores.',
+        'href' => '?controller=Solicitud&action=misSolicitudes',
+        'cta' => 'Gestionar solicitudes',
+    ];
+}
 ?>
 <section class="py-10 text-center">
   <h1 class="text-3xl font-extrabold text-slate-900">

@@ -1,4 +1,4 @@
--- phpMyAdmin SQL Dump
+﻿-- phpMyAdmin SQL Dump
 -- version 5.2.1
 -- https://www.phpmyadmin.net/
 --
@@ -29,7 +29,7 @@ SET time_zone = "+00:00";
 
 CREATE TABLE `categorias` (
   `id_categoria` int(11) NOT NULL,
-  `nombre` varchar(100) NOT NULL COMMENT 'Nombre de la categoría.'
+  `nombre` varchar(100) NOT NULL COMMENT 'Nombre de la categorÃ­a.'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -37,13 +37,13 @@ CREATE TABLE `categorias` (
 --
 
 INSERT INTO `categorias` (`id_categoria`, `nombre`) VALUES
-(6, 'Almacén'),
+(6, 'AlmacÃ©n'),
 (3, 'Bebidas'),
 (7, 'Carnes'),
 (8, 'Enlatados'),
 (4, 'Frutas'),
 (9, 'Granos y Cereales'),
-(2, 'Lácteos'),
+(2, 'LÃ¡cteos'),
 (1, 'Panificados'),
 (5, 'Verduras');
 
@@ -167,8 +167,8 @@ CREATE TABLE `movimiento` (
 
 CREATE TABLE `productos` (
   `id_productos` int(11) NOT NULL COMMENT 'ID producto.',
-  `create_at` datetime NOT NULL COMMENT 'Creación.',
-  `update_at` datetime NOT NULL COMMENT 'Última mod.',
+  `create_at` datetime NOT NULL COMMENT 'CreaciÃ³n.',
+  `update_at` datetime NOT NULL COMMENT 'Ãšltima mod.',
   `comentario` varchar(255) NOT NULL COMMENT 'Marca, empaque, etc.',
   `id_unidad` int(11) NOT NULL,
   `id_categoria` int(11) NOT NULL
@@ -280,12 +280,12 @@ INSERT INTO `unidades` (`id_unidad`, `nombre_unidad`, `abreviatura`, `estado`) V
 --
 
 CREATE TABLE `usuarios` (
-  `id_usuario` int(11) NOT NULL COMMENT 'Identificador único.',
+  `id_usuario` int(11) NOT NULL COMMENT 'Identificador Ãºnico.',
   `Nombre` varchar(255) NOT NULL COMMENT 'Nombre completo.',
-  `Email` varchar(255) NOT NULL COMMENT 'Único. Para login.',
+  `Email` varchar(255) NOT NULL COMMENT 'Ãšnico. Para login.',
   `contrasena` varchar(255) NOT NULL,
   `rol` varchar(50) NOT NULL COMMENT 'donante | receptor | admin',
-  `telefono` varchar(50) DEFAULT NULL COMMENT 'Teléfono del usuario.',
+  `telefono` varchar(50) DEFAULT NULL COMMENT 'TelÃ©fono del usuario.',
   `Latitud` decimal(10,8) DEFAULT NULL COMMENT 'Latitud GPS.',
   `Longitud` decimal(11,8) DEFAULT NULL COMMENT 'Longitud GPS.',
   `activo` varchar(1) NOT NULL DEFAULT '1' COMMENT '1=activo, 0=inactivo.'
@@ -524,7 +524,7 @@ ALTER TABLE `unidades`
 -- AUTO_INCREMENT for table `usuarios`
 --
 ALTER TABLE `usuarios`
-  MODIFY `id_usuario` int(11) NOT NULL AUTO_INCREMENT COMMENT 'Identificador único.', AUTO_INCREMENT=5;
+  MODIFY `id_usuario` int(11) NOT NULL AUTO_INCREMENT COMMENT 'Identificador Ãºnico.', AUTO_INCREMENT=5;
 
 --
 -- Constraints for dumped tables

@@ -13,12 +13,6 @@ class Producto extends Model
 
     private const JSON_OPTIONS = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES;
 
-    /** @var array<string,int|null> */
-    private static array $unidadCache = [];
-
-    /** @var array<int,string> */
-    private static array $categoriaCache = [];
-
     /**
      * Decodifica el contenido de la columna comentario.
      *
@@ -69,70 +63,6 @@ class Producto extends Model
     }
 
     /**
-     * Resuelve el ID de la unidad a partir de su abreviatura o nombre.
-     */
-    private function resolveUnidadId(?string $unidad): ?int
-    {
-        if ($unidad === null) {
-            return null;
-        }
-
-        $unidad = trim($unidad);
-        if ($unidad === '') {
-            return null;
-        }
-
-        $cacheKey = strtolower($unidad);
-        if (array_key_exists($cacheKey, self::$unidadCache)) {
-            return self::$unidadCache[$cacheKey];
-        }
-
-        self::initDb();
-
-        $sql = '
-            SELECT id_unidad
-            FROM unidades
-            WHERE LOWER(abreviatura) = LOWER(:value)
-               OR LOWER(nombre_unidad) = LOWER(:value)
-            LIMIT 1
-        ';
-
-        $stmt = self::$db->prepare($sql);
-        $stmt->execute([':value' => $unidad]);
-        $id = $stmt->fetchColumn();
-
-        $result = $id !== false ? (int) $id : null;
-        self::$unidadCache[$cacheKey] = $result;
-
-        return $result;
-    }
-
-    /**
-     * Obtiene el nombre de una categoría a partir de su ID.
-     */
-    private function resolveCategoriaNombre(?int $categoriaId): ?string
-    {
-        if ($categoriaId === null) {
-            return null;
-        }
-
-        if (array_key_exists($categoriaId, self::$categoriaCache)) {
-            return self::$categoriaCache[$categoriaId];
-        }
-
-        self::initDb();
-
-        $stmt = self::$db->prepare('SELECT nombre FROM categorias WHERE id_categoria = :id LIMIT 1');
-        $stmt->execute([':id' => $categoriaId]);
-        $nombre = $stmt->fetchColumn();
-
-        $nombreVal = $nombre !== false ? (string) $nombre : null;
-        self::$categoriaCache[$categoriaId] = $nombreVal;
-
-        return $nombreVal;
-    }
-
-    /**
      * Query base con joins necesarios para las agregaciones.
      */
     private function baseSelect(): string
@@ -140,19 +70,23 @@ class Producto extends Model
         return '
             SELECT
                 p.id_productos,
+                p.id_carga_producto,
                 p.comentario,
                 p.create_at,
                 p.update_at,
-                p.id_unidad,
-                p.id_categoria,
-                u.abreviatura AS unidad_abreviatura,
-                u.nombre_unidad AS unidad_nombre,
-                c.nombre AS categoria_nombre,
+                cp.id_categorias AS catalogo_categoria_id,
+                cp.id_unidades AS catalogo_unidad_id,
+                cp.nom_producto AS catalogo_nombre,
+                un.abreviatura AS catalogo_unidad_abreviatura,
+                un.nombre_unidad AS catalogo_unidad_nombre,
+                cat.nombre AS catalogo_categoria,
                 COALESCE(SUM(sp.cantidad), 0) AS stock_total,
+                MAX(sp.fecha_venc) AS stock_fecha_venc,
                 MAX(sp.update_at) AS stock_updated_at
             FROM productos p
-            LEFT JOIN unidades u ON u.id_unidad = p.id_unidad
-            LEFT JOIN categorias c ON c.id_categoria = p.id_categoria
+            LEFT JOIN cargar_productos cp ON cp.id_carga_producto = p.id_carga_producto
+            LEFT JOIN unidades un ON un.id_unidad = cp.id_unidades
+            LEFT JOIN categorias cat ON cat.id_categoria = cp.id_categorias
             LEFT JOIN stock_productos sp ON sp.id_producto = p.id_productos
         ';
     }
@@ -167,17 +101,22 @@ class Producto extends Model
 
         $nombre = trim((string) ($payload['nom_producto'] ?? ''));
         if ($nombre === '') {
-            $backup = trim((string) ($row['comentario'] ?? ''));
-            $nombre = $backup !== '' ? $backup : 'Producto sin nombre';
+            $catalogo = trim((string) ($row['catalogo_nombre'] ?? ''));
+            if ($catalogo !== '') {
+                $nombre = $catalogo;
+            } else {
+                $backup = trim((string) ($row['comentario'] ?? ''));
+                $nombre = $backup !== '' ? $backup : 'Producto sin nombre';
+            }
         }
 
         $unidadPayload = trim((string) ($payload['unidad'] ?? ''));
-        $unidad = $unidadPayload !== '' ? $unidadPayload : (string) ($row['unidad_abreviatura'] ?? '');
+        $unidad = $unidadPayload !== '' ? $unidadPayload : (string) ($row['catalogo_unidad_abreviatura'] ?? '');
         if ($unidad === '') {
-            $unidad = (string) ($row['unidad_nombre'] ?? '');
+            $unidad = (string) ($row['catalogo_unidad_nombre'] ?? '');
         }
 
-        $categoria = $payload['categoria'] ?? $row['categoria_nombre'] ?? null;
+        $categoria = $payload['categoria'] ?? $row['catalogo_categoria'] ?? null;
         if ($categoria !== null) {
             $categoria = (string) $categoria;
             if ($categoria === '') {
@@ -216,7 +155,7 @@ class Producto extends Model
             $fechaVencimiento = null;
         }
 
-        $categoriaId = $payload['categoria_id'] ?? $row['id_categoria'] ?? null;
+        $categoriaId = $payload['categoria_id'] ?? $row['catalogo_categoria_id'] ?? null;
         if ($categoriaId !== null) {
             $categoriaId = (int) $categoriaId;
         }
@@ -232,7 +171,6 @@ class Producto extends Model
             'estado' => $estadoPayload,
             'categoria' => $categoria,
             'categoria_id' => $categoriaId,
-            'unidad_id' => isset($row['id_unidad']) ? (int) $row['id_unidad'] : null,
             'created_at' => $row['create_at'] ?? null,
             'updated_at' => $row['update_at'] ?? null,
             'stock_total' => $stockTotal,
@@ -257,11 +195,12 @@ class Producto extends Model
                 p.comentario,
                 p.create_at,
                 p.update_at,
-                p.id_unidad,
-                p.id_categoria,
-                u.abreviatura,
-                u.nombre_unidad,
-                c.nombre
+                cp.id_categorias,
+                cp.id_unidades,
+                cp.nom_producto,
+                un.abreviatura,
+                un.nombre_unidad,
+                cat.nombre
         ';
 
         $stmt = self::$db->prepare($sql);
@@ -282,11 +221,12 @@ class Producto extends Model
                 p.comentario,
                 p.create_at,
                 p.update_at,
-                p.id_unidad,
-                p.id_categoria,
-                u.abreviatura,
-                u.nombre_unidad,
-                c.nombre
+                cp.id_categorias,
+                cp.id_unidades,
+                cp.nom_producto,
+                un.abreviatura,
+                un.nombre_unidad,
+                cat.nombre
             ORDER BY p.update_at DESC
             LIMIT :limit OFFSET :offset
         ';
@@ -306,21 +246,18 @@ class Producto extends Model
      */
     public function obtenerNombresDisponibles(): array
     {
-        $rows = self::all(1000, 0);
-        $nombres = [];
+        self::initDb();
 
-        foreach ($rows as $row) {
-            $nombre = trim((string) ($row['nom_producto'] ?? ''));
-            if ($nombre === '') {
-                continue;
-            }
-            $nombres[strtolower($nombre)] = $nombre;
-        }
+        $sql = 'SELECT nom_producto FROM cargar_productos WHERE estado = 1 ORDER BY nom_producto ASC';
+        $stmt = self::$db->query($sql);
+        $rows = $stmt->fetchAll(\PDO::FETCH_COLUMN) ?: [];
 
-        $lista = array_values($nombres);
-        sort($lista, SORT_NATURAL | SORT_FLAG_CASE);
-
-        return $lista;
+        return array_values(array_map(
+            static function ($nombre): string {
+                return (string)$nombre;
+            },
+            $rows
+        ));
     }
 
     /**
@@ -334,22 +271,10 @@ class Producto extends Model
         ?string $comentarios = null,
         ?string $estado = null,
         ?int $categoriaId = null,
-        ?string $categoriaNombre = null
+        ?string $categoriaNombre = null,
+        ?int $catalogoId = null
     ): string {
         self::initDb();
-
-        $unidadId = $this->resolveUnidadId($unidad);
-        if ($unidadId === null) {
-            throw new \InvalidArgumentException('Unidad no encontrada en el catalogo.');
-        }
-
-        if ($categoriaId === null) {
-            throw new \InvalidArgumentException('La categoria es obligatoria.');
-        }
-
-        if ($categoriaNombre === null) {
-            $categoriaNombre = $this->resolveCategoriaNombre($categoriaId);
-        }
 
         $now = (new \DateTimeImmutable())->format('Y-m-d H:i:s');
 
@@ -365,11 +290,10 @@ class Producto extends Model
         ]);
 
         return $this->insert([
+            'id_carga_producto' => $catalogoId,
             'comentario' => $comentario,
             'create_at' => $now,
             'update_at' => $now,
-            'id_unidad' => $unidadId,
-            'id_categoria' => $categoriaId,
         ]);
     }
 
@@ -385,7 +309,8 @@ class Producto extends Model
         ?string $comentarios = null,
         ?string $estado = null,
         ?int $categoriaId = null,
-        ?string $categoriaNombre = null
+        ?string $categoriaNombre = null,
+        ?int $catalogoId = null
     ): bool {
         self::initDb();
 
@@ -407,28 +332,22 @@ class Producto extends Model
 
         if ($categoriaId !== null) {
             $payload['categoria_id'] = $categoriaId;
-            $payload['categoria'] = $categoriaNombre ?? $this->resolveCategoriaNombre($categoriaId);
-        }
-
-        $unidadId = $this->resolveUnidadId($unidad) ?? (isset($row['id_unidad']) ? (int) $row['id_unidad'] : null);
-        if ($unidadId === null) {
-            throw new \InvalidArgumentException('Unidad no encontrada en el catalogo.');
-        }
-
-        $categoriaDestino = $categoriaId ?? (isset($row['id_categoria']) ? (int) $row['id_categoria'] : null);
-        if ($categoriaDestino === null) {
-            throw new \InvalidArgumentException('La categoria es obligatoria.');
+            $payload['categoria'] = $categoriaNombre ?? ($payload['categoria'] ?? null);
         }
 
         $comentario = $this->encodeComentario($payload);
         $now = (new \DateTimeImmutable())->format('Y-m-d H:i:s');
 
-        return $this->update($id, [
+        $data = [
             'comentario' => $comentario,
             'update_at' => $now,
-            'id_unidad' => $unidadId,
-            'id_categoria' => $categoriaDestino,
-        ]);
+        ];
+
+        if ($catalogoId !== null) {
+            $data['id_carga_producto'] = $catalogoId;
+        }
+
+        return $this->update($id, $data);
     }
 
     /**

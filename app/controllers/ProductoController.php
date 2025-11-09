@@ -2,8 +2,11 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../model/Producto.php';
+require_once __DIR__ . '/../model/CatalogoProducto.php';
 require_once __DIR__ . '/../model/Unidad.php';
 require_once __DIR__ . '/../model/Categoria.php';
+require_once __DIR__ . '/../model/stock_productos.php';
+require_once __DIR__ . '/../core/auth_session.php';
 require_once __DIR__ . '/controller.php';
 
 /**
@@ -16,6 +19,8 @@ class ProductoController extends Controller
      */
     private Producto $productoModel;
     private Categoria $categoriaModel;
+    private CatalogoProducto $catalogoModel;
+    private StockProducto $stockModel;
 
     /**
      * Prepara el controlador instanciando el modelo necesario.
@@ -24,6 +29,8 @@ class ProductoController extends Controller
     {
         $this->productoModel = new Producto();
         $this->categoriaModel = new Categoria();
+        $this->catalogoModel = new CatalogoProducto();
+        $this->stockModel = new StockProducto();
     }
 
     /**
@@ -179,7 +186,11 @@ class ProductoController extends Controller
     {
         $unidadModel = new Unidad();
         $unidades = $unidadModel->activas();
-        $nombresDisponibles = $this->productoModel->obtenerNombresDisponibles();
+        $catalogo = $this->catalogoModel->activos();
+        $nombresDisponibles = array_map(
+            static fn(array $item): string => $item['nombre'],
+            $catalogo
+        );
         $categorias = $this->getCategoriasMap();
         $this->render('products.product_load', compact('unidades', 'nombresDisponibles', 'categorias'));
     }
@@ -192,9 +203,18 @@ class ProductoController extends Controller
     public function store(): void
     {
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
-            $this->redirect('index.php?controller=Producto&action=create');
+            $this->redirect('?controller=Producto&action=create');
         }
 
+        requireLogin();
+        $usuario = current_user() ?? [];
+        $role = normalize_role($usuario['rol'] ?? null);
+        if ($role !== ROLE_DONANTE) {
+            $_SESSION['error'] = 'Solo los donantes pueden registrar productos.';
+            $this->redirect('?controller=Home&action=index');
+        }
+
+        $idDonante = (int)($usuario['id'] ?? 0);
         $nombre = trim($_POST['nombre'] ?? '');
         $unidad = trim($_POST['unidad'] ?? '');
         $cantidad = $_POST['cantidad'] ?? null;
@@ -204,46 +224,44 @@ class ProductoController extends Controller
 
         $errores = [];
 
+        $catalogoItem = null;
+
         if ($nombre === '') {
             $errores[] = 'El nombre del producto es obligatorio.';
-        }
-        if ($nombre !== '') {
-            $existentes = $this->productoModel->obtenerNombresDisponibles();
-            $toLower = static function (string $value): string {
-                return function_exists('mb_strtolower') ? mb_strtolower($value, 'UTF-8') : strtolower($value);
-            };
-            $lowerNombre = $toLower($nombre);
-            $estaCatalogo = false;
-            foreach ($existentes as $existente) {
-                if ($toLower($existente) === $lowerNombre) {
-                    $estaCatalogo = true;
-                    break;
-                }
-            }
-            if (!$estaCatalogo) {
+        } else {
+            $catalogoItem = $this->catalogoModel->buscarPorNombre($nombre);
+            if ($catalogoItem === null) {
                 $errores[] = 'El producto seleccionado no existe en el catalogo. Consulta con administracion.';
             }
         }
+
+        if ($unidad === '' && $catalogoItem !== null) {
+            $unidadCatalogo = $catalogoItem['unidad_abreviatura'] ?: $catalogoItem['unidad_nombre'];
+            if ($unidadCatalogo !== '') {
+                $unidad = $unidadCatalogo;
+            }
+        }
+
         if ($unidad === '') {
             $errores[] = 'La unidad es obligatoria.';
         }
 
         if ($cantidad === '' || $cantidad === null) {
-            $cantidad = null;
+            $errores[] = 'La cantidad es obligatoria.';
+        } elseif (!ctype_digit((string)$cantidad) || (int)$cantidad <= 0) {
+            $errores[] = 'La cantidad debe ser un entero positivo.';
         } else {
-            if (!ctype_digit((string)$cantidad) || (int)$cantidad <= 0) {
-                $errores[] = 'La cantidad debe ser un entero positivo.';
-            } else {
-                $cantidad = (int)$cantidad;
-            }
+            $cantidad = (int)$cantidad;
         }
 
         if ($fechaVencimiento === '') {
-            $fechaVencimiento = null;
+            $errores[] = 'La fecha de vencimiento es obligatoria.';
         } else {
             $fecha = \DateTime::createFromFormat('Y-m-d', $fechaVencimiento);
             if (!$fecha || $fecha->format('Y-m-d') !== $fechaVencimiento) {
                 $errores[] = 'La fecha de vencimiento no tiene un formato valido (AAAA-MM-DD).';
+            } elseif ($fecha < new \DateTime('today')) {
+                $errores[] = 'La fecha de vencimiento debe ser posterior al dia de hoy.';
             }
         }
 
@@ -252,6 +270,19 @@ class ProductoController extends Controller
         }
 
         $categoriasMap = $this->getCategoriasMap();
+
+        if (($categoriaIdRaw === '' || $categoriaIdRaw === null) && $catalogoItem !== null) {
+            $catalogoCategoria = $catalogoItem['categoria_nombre'] ?? '';
+            if ($catalogoCategoria !== '') {
+                foreach ($categoriasMap as $id => $nombreCategoria) {
+                    if (strcasecmp($nombreCategoria, $catalogoCategoria) === 0) {
+                        $categoriaIdRaw = (string)$id;
+                        break;
+                    }
+                }
+            }
+        }
+
         $categoriaId = null;
         $categoriaNombre = null;
         if ($categoriaIdRaw === '' || $categoriaIdRaw === null) {
@@ -269,11 +300,14 @@ class ProductoController extends Controller
 
         if (!empty($errores)) {
             $_SESSION['error'] = implode(' ', $errores);
-            $this->redirect('index.php?controller=Producto&action=create');
+            $this->redirect('?controller=Producto&action=create');
+            return;
         }
 
+        $catalogoId = $catalogoItem['id'] ?? null;
+
         try {
-            $id = $this->productoModel->crear(
+            $id = (int)$this->productoModel->crear(
                 $nombre,
                 $unidad,
                 $cantidad,
@@ -281,14 +315,18 @@ class ProductoController extends Controller
                 $comentarios,
                 null,
                 $categoriaId,
-                $categoriaNombre
+                $categoriaNombre,
+                $catalogoId
             );
-            $_SESSION['success'] = 'Producto creado con exito (ID: ' . $id . ').';
+            $this->stockModel->registrarStock($idDonante, $id, (int)$cantidad, $fechaVencimiento);
+
+            $_SESSION['success'] = 'Producto registrado con stock disponible.';
         } catch (\Throwable $exception) {
+            error_log('Error al registrar producto: ' . $exception->getMessage());
             $_SESSION['error'] = 'No se pudo crear el producto. Intenta mas tarde.';
         }
 
-        $this->redirect('index.php?controller=Producto&action=index');
+        $this->redirect('?controller=Producto&action=misProductos');
     }
 
     /**
@@ -362,27 +400,24 @@ class ProductoController extends Controller
         }
 
         $errores = [];
+        $catalogoItem = null;
 
         if ($nombre === '') {
             $errores[] = 'El nombre del producto es obligatorio.';
-        }
-        if ($nombre !== '') {
-            $existentes = $this->productoModel->obtenerNombresDisponibles();
-            $toLower = static function (string $value): string {
-                return function_exists('mb_strtolower') ? mb_strtolower($value, 'UTF-8') : strtolower($value);
-            };
-            $lowerNombre = $toLower($nombre);
-            $estaCatalogo = false;
-            foreach ($existentes as $existente) {
-                if ($toLower($existente) === $lowerNombre) {
-                    $estaCatalogo = true;
-                    break;
-                }
-            }
-            if (!$estaCatalogo) {
+        } else {
+            $catalogoItem = $this->catalogoModel->buscarPorNombre($nombre);
+            if ($catalogoItem === null) {
                 $errores[] = 'El producto seleccionado no existe en el catalogo. Consulta con administracion.';
             }
         }
+
+        if ($unidad === '' && $catalogoItem !== null) {
+            $unidadCatalogo = $catalogoItem['unidad_abreviatura'] ?: $catalogoItem['unidad_nombre'];
+            if ($unidadCatalogo !== '') {
+                $unidad = $unidadCatalogo;
+            }
+        }
+
         if ($unidad === '') {
             $errores[] = 'La unidad es obligatoria.';
         }
@@ -398,11 +433,13 @@ class ProductoController extends Controller
         }
 
         if ($fechaVencimiento === '') {
-            $fechaVencimiento = null;
+            $errores[] = 'La fecha de vencimiento es obligatoria.';
         } else {
             $fecha = \DateTime::createFromFormat('Y-m-d', $fechaVencimiento);
             if (!$fecha || $fecha->format('Y-m-d') !== $fechaVencimiento) {
                 $errores[] = 'La fecha de vencimiento no tiene un formato valido (AAAA-MM-DD).';
+            } elseif ($fecha < new \DateTime('today')) {
+                $errores[] = 'La fecha de vencimiento debe ser futura.';
             }
         }
 
@@ -415,6 +452,19 @@ class ProductoController extends Controller
         }
 
         $categoriasMap = $this->getCategoriasMap();
+
+        if (($categoriaIdRaw === '' || $categoriaIdRaw === null) && $catalogoItem !== null) {
+            $catalogoCategoria = $catalogoItem['categoria_nombre'] ?? '';
+            if ($catalogoCategoria !== '') {
+                foreach ($categoriasMap as $idCategoria => $nombreCategoria) {
+                    if (strcasecmp($nombreCategoria, $catalogoCategoria) === 0) {
+                        $categoriaIdRaw = (string)$idCategoria;
+                        break;
+                    }
+                }
+            }
+        }
+
         $categoriaId = null;
         $categoriaNombre = null;
         if ($categoriaIdRaw === '' || $categoriaIdRaw === null) {
@@ -435,6 +485,8 @@ class ProductoController extends Controller
             $this->redirect('index.php?controller=Producto&action=edit&id=' . urlencode((string)$id));
         }
 
+        $catalogoId = $catalogoItem['id'] ?? null;
+
         $ok = $this->productoModel->actualizarProducto(
             $id,
             $nombre,
@@ -444,7 +496,8 @@ class ProductoController extends Controller
             $comentarios,
             $estado,
             $categoriaId,
-            $categoriaNombre
+            $categoriaNombre,
+            $catalogoId
         );
 
         $_SESSION['success'] = $ok ? 'Producto actualizado.' : 'No se pudo actualizar.';

@@ -8,6 +8,7 @@ $isAdmin = has_role(ROLE_ADMIN);
 $userName = $userName ?? ($currentUser['name'] ?? 'Invitado');
 $userAvatar = $userAvatar ?? ($currentUser['avatar'] ?? null);
 $userRole = $userRole ?? ($currentUser['rol'] ?? null);
+$normalizedRole = normalize_role($userRole);
 
 $menuSections = $menuSections ?? null;
 if ($menuSections === null) {
@@ -21,12 +22,18 @@ if ($menuSections === null) {
                 ['label' => 'Inicio', 'url' => 'index.php?controller=Home&action=index'],
             ];
 
-            if (can('productos.listar')) {
+            if (can('productos.listar') && ($normalizedRole === ROLE_DONANTE || $normalizedRole === ROLE_COLABORADOR || $normalizedRole === ROLE_ADMIN)) {
                 $navigation[] = ['label' => 'Mis productos', 'url' => 'index.php?controller=Producto&action=misProductos'];
-                $navigation[] = ['label' => 'Productos disponibles', 'url' => 'index.php?controller=Producto&action=productosDisponibles'];
+            }
+
+            if ($normalizedRole === ROLE_RECEPTOR) {
+                $navigation[] = ['label' => 'Solicitar productos', 'url' => '?controller=Solicitud&action=productosDisponibles'];
+            } elseif ($normalizedRole === ROLE_DONANTE) {
+                $navigation[] = ['label' => 'Solicitudes pendientes', 'url' => '?controller=Solicitud&action=misSolicitudes'];
             }
 
             $navigation[] = ['label' => 'Mapa', 'url' => 'index.php?controller=Map&action=index'];
+            $navigation[] = ['label' => 'Contacto', 'url' => '?controller=Info&action=contacto'];
 
             $menuSections['Navegacion'] = $navigation;
 

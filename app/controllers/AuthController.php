@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/controller.php';
 require_once __DIR__ . '/../model/authservice.php';
 require_once __DIR__ . '/../services/EmailService.php';
+require_once __DIR__ . '/../services/ProfileService.php';
 
 class AuthController extends Controller
 {
@@ -128,6 +129,11 @@ class AuthController extends Controller
             }
 
             set_user_session($usuario);
+
+            $profileService = new ProfileService();
+            $userId = (int)($usuario['id_usuario'] ?? $usuario['ID_Usuario'] ?? $usuario['id'] ?? 0);
+            $userRole = $usuario['rol'] ?? null;
+            $_SESSION['profile_pending'] = $profileService->needsCompletion($userId, is_string($userRole) ? $userRole : null);
             unset($_SESSION['error']);
 
             header('Location: ?controller=Home&action=index');

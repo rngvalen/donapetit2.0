@@ -4,12 +4,20 @@ declare(strict_types=1);
 require_once __DIR__ . '/controller.php';
 require_once __DIR__ . '/../core/auth_session.php';
 require_once __DIR__ . '/../model/donacion.php';
+require_once __DIR__ . '/../services/ProfileService.php';
 
 /**
  * Controlador responsable de la pagina inicial del panel.
  */
 class HomeController extends Controller
 {
+    private ProfileService $profiles;
+
+    public function __construct()
+    {
+        $this->profiles = new ProfileService();
+    }
+
     /**
      * Muestra la vista de bienvenida del sistema.
      *
@@ -18,10 +26,31 @@ class HomeController extends Controller
     public function index(): void
     {
         requireLogin();
+
         $usuario = current_user() ?? [];
         $userName = $usuario['name'] ?? 'Usuario';
+        $userRole = normalize_role($usuario['rol'] ?? null) ?? ROLE_DONANTE;
+        $userId = (int)($usuario['id'] ?? 0);
 
-        $this->render('home.index', compact('userName'));
+        if ($userId > 0 && $this->profiles->needsCompletion($userId, $userRole)) {
+            $_SESSION['profile_pending'] = true;
+            $this->redirect('?controller=Profile&action=completarPerfil');
+        }
+
+        unset($_SESSION['profile_pending']);
+
+        if ($userRole === ROLE_RECEPTOR) {
+            $this->render('home.receptor', [
+                'userName' => $userName,
+                'userRole' => $userRole,
+            ]);
+            return;
+        }
+
+        $this->render('home.index', [
+            'userName' => $userName,
+            'userRole' => $userRole,
+        ]);
     }
 
     /**
