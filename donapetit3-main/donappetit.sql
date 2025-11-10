@@ -2,10 +2,10 @@
 -- version 5.2.1
 -- https://www.phpmyadmin.net/
 --
--- Host: localhost
--- Generation Time: Oct 22, 2025 at 03:52 PM
--- Server version: 10.4.28-MariaDB
--- PHP Version: 8.2.4
+-- Servidor: 127.0.0.1
+-- Tiempo de generación: 10-11-2025 a las 18:02:37
+-- Versión del servidor: 10.4.32-MariaDB
+-- Versión de PHP: 8.2.12
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -18,75 +18,103 @@ SET time_zone = "+00:00";
 /*!40101 SET NAMES utf8mb4 */;
 
 --
--- Database: `donappetit`
+-- Base de datos: `donappetit`
 --
 
 -- --------------------------------------------------------
 
 --
--- Table structure for table `categorias`
+-- Estructura de tabla para la tabla `catalogo_productos`
+--
+
+CREATE TABLE `catalogo_productos` (
+  `id_catalogo` int(11) NOT NULL,
+  `nom_producto` varchar(100) NOT NULL,
+  `descripcion` text DEFAULT NULL,
+  `id_categoria` int(11) NOT NULL,
+  `id_unidad` int(11) NOT NULL,
+  `estado` enum('Activo','Inactivo') DEFAULT 'Activo'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `categorias`
 --
 
 CREATE TABLE `categorias` (
   `id_categoria` int(11) NOT NULL,
-  `nombre` varchar(100) NOT NULL COMMENT 'Nombre de la categoría.'
+  `nombre` varchar(100) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data for table `categorias`
+-- Volcado de datos para la tabla `categorias`
 --
 
 INSERT INTO `categorias` (`id_categoria`, `nombre`) VALUES
-(6, 'Almacén'),
+(1, 'Panificados'),
+(2, 'Lácteos'),
 (3, 'Bebidas'),
+(4, 'Frutas'),
+(5, 'Verduras'),
+(6, 'Almacén'),
 (7, 'Carnes'),
 (8, 'Enlatados'),
-(4, 'Frutas'),
-(9, 'Granos y Cereales'),
-(2, 'Lácteos'),
-(1, 'Panificados'),
-(5, 'Verduras');
+(9, 'Granos y Cereales');
 
 -- --------------------------------------------------------
 
 --
--- Table structure for table `codigo_verificacion`
+-- Estructura de tabla para la tabla `detalle`
 --
 
-CREATE TABLE `codigo_verificacion` (
-  `id_cod` int(11) NOT NULL,
-  `id_usuario` int(11) NOT NULL COMMENT 'FK usuarios.id_usuario',
-  `fecha_expiracion` datetime NOT NULL,
-  `activo` varchar(1) NOT NULL
+CREATE TABLE `detalle` (
+  `id_detalle` int(11) NOT NULL,
+  `id_producto_solicitado` int(11) NOT NULL,
+  `cantidad_donada` int(11) NOT NULL,
+  `donacion_efectiva` tinyint(1) DEFAULT 0,
+  `fecha_registro` datetime DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Disparadores `detalle`
+--
+DELIMITER $$
+CREATE TRIGGER `trigger_actualizar_stock` AFTER UPDATE ON `detalle` FOR EACH ROW BEGIN
+  -- Declaraciones SIEMPRE al comienzo del bloque
+  DECLARE idProdDonante INT;
+
+  IF NEW.donacion_efectiva = 1 AND OLD.donacion_efectiva = 0 THEN
+    -- buscar el producto del donante asociado al detalle
+    SELECT ps.id_producto_donante
+      INTO idProdDonante
+      FROM productos_solicitados ps
+     WHERE ps.id_producto_solicitado = NEW.id_producto_solicitado;
+
+    -- descontar stock
+    UPDATE productos_donante
+       SET cantidad_disponible = cantidad_disponible - NEW.cantidad_donada
+     WHERE id_producto_donante = idProdDonante;
+
+    -- registrar movimiento
+    INSERT INTO movimiento (id_producto_donante, tipo_movimiento, cantidad)
+    VALUES (idProdDonante, 'Baja', NEW.cantidad_donada, 'Donación confirmada');
+  END IF;
+END
+$$
+DELIMITER ;
+
 -- --------------------------------------------------------
 
 --
--- Table structure for table `detalles_donacion`
---
-
-CREATE TABLE `detalles_donacion` (
-  `id_secuencia` int(11) NOT NULL,
-  `id_donacionfk` int(11) NOT NULL,
-  `id_productofk` int(11) NOT NULL,
-  `create_at` datetime NOT NULL,
-  `cantidad_donado` int(200) NOT NULL,
-  `fecha_donacion` datetime NOT NULL,
-  `id_retirofk` int(11) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `direcciones`
+-- Estructura de tabla para la tabla `direcciones`
 --
 
 CREATE TABLE `direcciones` (
   `id_direccion` int(11) NOT NULL,
-  `id_usuario_direcc` int(11) NOT NULL COMMENT 'FK usuarios.id_usuario',
+  `id_usuario_direcc` int(11) NOT NULL,
   `nom_calle` varchar(50) NOT NULL,
-  `num_calle` int(11) NOT NULL,
+  `num_calle` int(11) DEFAULT NULL,
   `Latitud` decimal(10,8) DEFAULT NULL,
   `Longitud` decimal(11,8) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -94,174 +122,99 @@ CREATE TABLE `direcciones` (
 -- --------------------------------------------------------
 
 --
--- Table structure for table `donacion`
---
-
-CREATE TABLE `donacion` (
-  `id_donacion` int(11) NOT NULL,
-  `create_at` datetime NOT NULL,
-  `update_at` datetime NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `donante`
+-- Estructura de tabla para la tabla `donante`
 --
 
 CREATE TABLE `donante` (
-  `id_usu_donante` int(11) NOT NULL COMMENT 'FK usuarios.id_usuario',
-  `nom_comercial` varchar(255) NOT NULL COMMENT 'Nombre comercial.',
-  `CUIT` varchar(20) NOT NULL COMMENT 'CUIT.'
+  `id_usu_donante` int(11) NOT NULL,
+  `nom_comercial` varchar(255) NOT NULL,
+  `CUIT` varchar(20) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
 --
--- Table structure for table `estadistica`
---
-
-CREATE TABLE `estadistica` (
-  `id_estadistica` int(11) NOT NULL,
-  `id_donacion` int(11) NOT NULL COMMENT 'FK donacion.id_donacion',
-  `total_donado` int(11) NOT NULL,
-  `frecuencia_mensual` int(11) NOT NULL,
-  `frecuencia_anual` int(11) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `imagenes_productos`
---
-
-CREATE TABLE `imagenes_productos` (
-  `id_imagenes` int(11) NOT NULL,
-  `id_productos` int(11) NOT NULL COMMENT 'FK productos.id_productos',
-  `url` varchar(2083) NOT NULL,
-  `create_at` datetime NOT NULL,
-  `update_at` datetime NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `movimiento`
+-- Estructura de tabla para la tabla `movimiento`
 --
 
 CREATE TABLE `movimiento` (
   `id_movimiento` int(11) NOT NULL,
-  `id_retirofk` int(11) DEFAULT NULL,
-  `id_donacionfk` int(11) DEFAULT NULL,
-  `create_at` datetime NOT NULL,
-  `id_stockfk` int(11) NOT NULL,
-  `id_productofk` int(11) NOT NULL
+  `id_producto_donante` int(11) NOT NULL,
+  `tipo_movimiento` enum('Alta','Baja','Ajuste') NOT NULL,
+  `cantidad` int(11) NOT NULL,
+  `fecha_movimiento` datetime DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
 --
--- Table structure for table `productos`
+-- Estructura de tabla para la tabla `productos_donante`
 --
 
-CREATE TABLE `productos` (
-  `id_productos` int(11) NOT NULL COMMENT 'ID producto.',
-  `create_at` datetime NOT NULL COMMENT 'Creación.',
-  `update_at` datetime NOT NULL COMMENT 'Última mod.',
-  `comentario` varchar(255) NOT NULL COMMENT 'Marca, empaque, etc.',
-  `id_unidad` int(11) NOT NULL,
-  `id_categoria` int(11) NOT NULL
+CREATE TABLE `productos_donante` (
+  `id_producto_donante` int(11) NOT NULL,
+  `id_donante` int(11) NOT NULL,
+  `id_catalogo` int(11) NOT NULL,
+  `cantidad_disponible` int(11) NOT NULL,
+  `fecha_registro` datetime DEFAULT current_timestamp(),
+  `estado` enum('Activo','Inactivo') DEFAULT 'Activo'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
 --
--- Table structure for table `receptor`
+-- Estructura de tabla para la tabla `productos_solicitados`
+--
+
+CREATE TABLE `productos_solicitados` (
+  `id_producto_solicitado` int(11) NOT NULL,
+  `id_solicitud` int(11) NOT NULL,
+  `id_producto_donante` int(11) NOT NULL,
+  `cantidad_solicitada` int(11) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `receptor`
 --
 
 CREATE TABLE `receptor` (
-  `id_usu_receptor` int(11) NOT NULL COMMENT 'FK usuarios.id_usuario',
+  `id_usu_receptor` int(11) NOT NULL,
+  `nom_institucion` varchar(150) NOT NULL,
   `num_renacom` varchar(50) NOT NULL,
-  `nom_institucion` varchar(255) NOT NULL,
   `responsable` varchar(50) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
 --
--- Table structure for table `retiros`
+-- Estructura de tabla para la tabla `solicitud`
 --
 
-CREATE TABLE `retiros` (
-  `id_retiro` int(11) NOT NULL,
-  `fecha_programada` datetime NOT NULL,
-  `fecha_retiro` datetime NOT NULL,
-  `estado` tinyint(1) NOT NULL COMMENT '1=entregado, 0=no',
-  `id_direcciones` int(11) NOT NULL COMMENT 'FK direcciones.id_direccion',
-  `detalles_donacionfk` int(11) NOT NULL,
-  `create_at` datetime NOT NULL,
-  `delete_at` datetime NOT NULL,
-  `id_donacionfk` int(11) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `solicitudes`
---
-
-CREATE TABLE `solicitudes` (
+CREATE TABLE `solicitud` (
   `id_solicitud` int(11) NOT NULL,
-  `id_donante` int(11) NOT NULL COMMENT 'FK donante.id_usu_donante',
-  `id_productos` int(11) NOT NULL COMMENT 'FK productos.id_productos',
-  `cantidad_solicitada` int(11) NOT NULL,
-  `create_at` datetime NOT NULL,
-  `estado` tinyint(1) NOT NULL
+  `id_receptor` int(11) NOT NULL,
+  `fecha_solicitud` datetime DEFAULT current_timestamp(),
+  `estado` enum('Pendiente','Aprobada','Rechazada') DEFAULT 'Pendiente',
+  `observacion` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
 --
--- Table structure for table `stock_productos`
---
-
-CREATE TABLE `stock_productos` (
-  `id_stock` int(11) NOT NULL,
-  `id_donante` int(11) NOT NULL COMMENT 'FK donante.id_usu_donante',
-  `cantidad` int(11) NOT NULL COMMENT 'Cantidad en stock',
-  `id_producto` int(11) NOT NULL COMMENT 'FK productos.id_productos',
-  `create_at` datetime NOT NULL,
-  `update_at` datetime NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `stock_productos_donacion`
---
-
-CREATE TABLE `stock_productos_donacion` (
-  `id_stock_productos_donaciones` int(11) NOT NULL,
-  `id_producto` int(11) NOT NULL COMMENT 'FK productos.id_productos',
-  `stock_productos` int(11) NOT NULL COMMENT 'FK stock_productos.id_stock',
-  `fecha_venc` datetime NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `unidades`
+-- Estructura de tabla para la tabla `unidades`
 --
 
 CREATE TABLE `unidades` (
   `id_unidad` int(11) NOT NULL,
-  `nombre_unidad` varchar(50) NOT NULL COMMENT 'Kilogramo, Gramo, Litro, etc.',
-  `abreviatura` varchar(10) NOT NULL COMMENT 'kg, g, lts, ml, etc.',
-  `estado` tinyint(1) NOT NULL COMMENT '1=activo, 0=inactivo'
+  `nombre_unidad` varchar(50) NOT NULL,
+  `abreviatura` varchar(10) DEFAULT NULL,
+  `estado` tinyint(1) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data for table `unidades`
+-- Volcado de datos para la tabla `unidades`
 --
 
 INSERT INTO `unidades` (`id_unidad`, `nombre_unidad`, `abreviatura`, `estado`) VALUES
@@ -270,353 +223,320 @@ INSERT INTO `unidades` (`id_unidad`, `nombre_unidad`, `abreviatura`, `estado`) V
 (3, 'Litro', 'lts', 1),
 (4, 'Mililitro', 'ml', 1),
 (5, 'Unidad', 'u', 1),
-(6, 'Paquete', 'pack', 1);
+(6, 'Paquete', 'pack', 1),
+(22, 'Docena', 'docena', 1),
+(23, 'Lata', 'lata', 1),
+(24, 'Caja', 'caja', 1),
+(25, 'Botella', 'botella', 1);
 
 -- --------------------------------------------------------
 
 --
--- Table structure for table `usuarios`
+-- Estructura de tabla para la tabla `usuario`
 --
 
-CREATE TABLE `usuarios` (
-  `id_usuario` int(11) NOT NULL COMMENT 'Identificador único.',
-  `Nombre` varchar(255) NOT NULL COMMENT 'Nombre completo.',
-  `Email` varchar(255) NOT NULL COMMENT 'Único. Para login.',
+CREATE TABLE `usuario` (
+  `id_usuario` int(11) NOT NULL,
+  `Nombre` varchar(255) NOT NULL,
+  `Email` varchar(255) NOT NULL,
   `contrasena` varchar(255) NOT NULL,
-  `rol` varchar(50) NOT NULL COMMENT 'donante | receptor | admin',
-  `telefono` varchar(50) DEFAULT NULL COMMENT 'Teléfono del usuario.',
-  `Latitud` decimal(10,8) DEFAULT NULL COMMENT 'Latitud GPS.',
-  `Longitud` decimal(11,8) DEFAULT NULL COMMENT 'Longitud GPS.',
-  `activo` varchar(1) NOT NULL DEFAULT '1' COMMENT '1=activo, 0=inactivo.'
+  `rol` varchar(50) NOT NULL,
+  `telefono` varchar(50) DEFAULT NULL,
+  `Latitud` decimal(10,8) DEFAULT NULL,
+  `Longitud` decimal(11,8) DEFAULT NULL,
+  `activo` tinyint(1) NOT NULL DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Dumping data for table `usuarios`
---
-
-INSERT INTO `usuarios` (`id_usuario`, `Nombre`, `Email`, `contrasena`, `rol`, `telefono`, `Latitud`, `Longitud`, `activo`) VALUES
-(2, 'TestUser', 'test@example.com', '$2y$10$Rn59n7lAywj4Tcc3sAsOj.tYh2HA6VQeDPsbc7YMM2/19C3E8asZ2', 'donante', '123456789', 0.00000000, 0.00000000, '1'),
-(3, 'Benjamin', 'ivanluxen76@gmail.com', '$2y$10$5v8ExOwsB0QIFwWIrMJZQO5Lp7lz3Et6ZWsM4B58F7BQfp2x7QPKu', 'donante', '3644883178', -27.44828195, -58.98502021, '1'),
-(4, 'Benjamin', 'ivanluxen@gmail.com', '$2y$10$COopMyyoKRUB.ZD/jAq0aOqVq/mvhY8/WR/owWYW.zlwfr7TmrnIe', 'donante', '3644883178', -27.44827068, -58.98504788, '1');
+-- --------------------------------------------------------
 
 --
--- Indexes for dumped tables
+-- Estructura de tabla para la tabla `verificar_contrasena`
+--
+
+CREATE TABLE `verificar_contrasena` (
+  `id_cod` int(11) NOT NULL,
+  `id_usuario` int(11) NOT NULL,
+  `fecha_expiracion` datetime DEFAULT current_timestamp(),
+  `activo` tinyint(1) NOT NULL,
+  `codigo` varchar(100) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Estructura Stand-in para la vista `vista_catalogo_disponible`
+-- (Véase abajo para la vista actual)
+--
+CREATE TABLE `vista_catalogo_disponible` (
+`id_catalogo` int(11)
+,`nombre_producto` varchar(100)
+,`categoria` varchar(100)
+,`unidad` varchar(50)
+,`abreviatura_unidad` varchar(10)
+);
+
+-- --------------------------------------------------------
+
+--
+-- Estructura Stand-in para la vista `vista_productos_disponibles`
+-- (Véase abajo para la vista actual)
+--
+CREATE TABLE `vista_productos_disponibles` (
+`nombre_donante` varchar(255)
+,`nom_producto` varchar(100)
+,`categoria` varchar(100)
+,`cantidad_disponible` int(11)
+,`unidad` varchar(50)
+);
+
+-- --------------------------------------------------------
+
+--
+-- Estructura para la vista `vista_catalogo_disponible`
+--
+DROP TABLE IF EXISTS `vista_catalogo_disponible`;
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `vista_catalogo_disponible`  AS SELECT `cp`.`id_catalogo` AS `id_catalogo`, `cp`.`nom_producto` AS `nombre_producto`, `c`.`nombre` AS `categoria`, `u`.`nombre_unidad` AS `unidad`, `u`.`abreviatura` AS `abreviatura_unidad` FROM ((`catalogo_productos` `cp` join `categorias` `c` on(`cp`.`id_categoria` = `c`.`id_categoria`)) join `unidades` `u` on(`cp`.`id_unidad` = `u`.`id_unidad`)) WHERE `cp`.`estado` = 'Activo' ;
+
+-- --------------------------------------------------------
+
+--
+-- Estructura para la vista `vista_productos_disponibles`
+--
+DROP TABLE IF EXISTS `vista_productos_disponibles`;
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `vista_productos_disponibles`  AS SELECT `d`.`nom_comercial` AS `nombre_donante`, `cp`.`nom_producto` AS `nom_producto`, `c`.`nombre` AS `categoria`, `pd`.`cantidad_disponible` AS `cantidad_disponible`, `u`.`nombre_unidad` AS `unidad` FROM ((((`productos_donante` `pd` join `donante` `d` on(`pd`.`id_donante` = `d`.`id_usu_donante`)) join `catalogo_productos` `cp` on(`pd`.`id_catalogo` = `cp`.`id_catalogo`)) join `categorias` `c` on(`cp`.`id_categoria` = `c`.`id_categoria`)) join `unidades` `u` on(`cp`.`id_unidad` = `u`.`id_unidad`)) WHERE `pd`.`cantidad_disponible` > 0 AND `pd`.`estado` = 'Activo' ;
+
+--
+-- Índices para tablas volcadas
 --
 
 --
--- Indexes for table `categorias`
+-- Indices de la tabla `catalogo_productos`
+--
+ALTER TABLE `catalogo_productos`
+  ADD PRIMARY KEY (`id_catalogo`),
+  ADD KEY `id_categoria` (`id_categoria`),
+  ADD KEY `id_unidad` (`id_unidad`);
+
+--
+-- Indices de la tabla `categorias`
 --
 ALTER TABLE `categorias`
-  ADD PRIMARY KEY (`id_categoria`),
-  ADD UNIQUE KEY `uq_categorias_nombre` (`nombre`);
+  ADD PRIMARY KEY (`id_categoria`);
 
 --
--- Indexes for table `codigo_verificacion`
+-- Indices de la tabla `detalle`
 --
-ALTER TABLE `codigo_verificacion`
-  ADD PRIMARY KEY (`id_cod`),
-  ADD KEY `idx_cod_usuario` (`id_usuario`);
+ALTER TABLE `detalle`
+  ADD PRIMARY KEY (`id_detalle`),
+  ADD KEY `id_producto_solicitado` (`id_producto_solicitado`);
 
 --
--- Indexes for table `detalles_donacion`
---
-ALTER TABLE `detalles_donacion`
-  ADD PRIMARY KEY (`id_secuencia`),
-  ADD KEY `id_donacionfk` (`id_donacionfk`),
-  ADD KEY `id_productofk` (`id_productofk`),
-  ADD KEY `id_retirofk` (`id_retirofk`);
-
---
--- Indexes for table `direcciones`
+-- Indices de la tabla `direcciones`
 --
 ALTER TABLE `direcciones`
   ADD PRIMARY KEY (`id_direccion`),
-  ADD KEY `idx_dir_usuario` (`id_usuario_direcc`);
+  ADD KEY `id_usuario_direcc` (`id_usuario_direcc`);
 
 --
--- Indexes for table `donacion`
---
-ALTER TABLE `donacion`
-  ADD PRIMARY KEY (`id_donacion`);
-
---
--- Indexes for table `donante`
+-- Indices de la tabla `donante`
 --
 ALTER TABLE `donante`
   ADD PRIMARY KEY (`id_usu_donante`);
 
 --
--- Indexes for table `estadistica`
---
-ALTER TABLE `estadistica`
-  ADD PRIMARY KEY (`id_estadistica`),
-  ADD KEY `idx_estad_donacion` (`id_donacion`);
-
---
--- Indexes for table `imagenes_productos`
---
-ALTER TABLE `imagenes_productos`
-  ADD PRIMARY KEY (`id_imagenes`),
-  ADD KEY `idx_img_producto` (`id_productos`);
-
---
--- Indexes for table `movimiento`
+-- Indices de la tabla `movimiento`
 --
 ALTER TABLE `movimiento`
   ADD PRIMARY KEY (`id_movimiento`),
-  ADD KEY `id_donacion` (`id_donacionfk`),
-  ADD KEY `id_stock` (`id_stockfk`),
-  ADD KEY `id_retiro` (`id_retirofk`),
-  ADD KEY `id_producto` (`id_productofk`);
+  ADD KEY `id_producto_donante` (`id_producto_donante`);
 
 --
--- Indexes for table `productos`
+-- Indices de la tabla `productos_donante`
 --
-ALTER TABLE `productos`
-  ADD PRIMARY KEY (`id_productos`),
-  ADD KEY `id_unidadfk` (`id_unidad`),
-  ADD KEY `id_categoriafk` (`id_categoria`);
+ALTER TABLE `productos_donante`
+  ADD PRIMARY KEY (`id_producto_donante`),
+  ADD KEY `id_donante` (`id_donante`),
+  ADD KEY `id_catalogo` (`id_catalogo`);
 
 --
--- Indexes for table `receptor`
+-- Indices de la tabla `productos_solicitados`
+--
+ALTER TABLE `productos_solicitados`
+  ADD PRIMARY KEY (`id_producto_solicitado`),
+  ADD KEY `id_solicitud` (`id_solicitud`),
+  ADD KEY `id_producto_donante` (`id_producto_donante`);
+
+--
+-- Indices de la tabla `receptor`
 --
 ALTER TABLE `receptor`
   ADD PRIMARY KEY (`id_usu_receptor`);
 
 --
--- Indexes for table `retiros`
+-- Indices de la tabla `solicitud`
 --
-ALTER TABLE `retiros`
-  ADD PRIMARY KEY (`id_retiro`),
-  ADD KEY `idx_retiro_direccion` (`id_direcciones`),
-  ADD KEY `detalles_donacionfk` (`detalles_donacionfk`),
-  ADD KEY `id_don` (`id_donacionfk`);
-
---
--- Indexes for table `solicitudes`
---
-ALTER TABLE `solicitudes`
+ALTER TABLE `solicitud`
   ADD PRIMARY KEY (`id_solicitud`),
-  ADD KEY `idx_sol_donante` (`id_donante`),
-  ADD KEY `idx_sol_producto` (`id_productos`);
+  ADD KEY `id_receptor` (`id_receptor`);
 
 --
--- Indexes for table `stock_productos`
---
-ALTER TABLE `stock_productos`
-  ADD PRIMARY KEY (`id_stock`),
-  ADD KEY `idx_stock_donante` (`id_donante`),
-  ADD KEY `idx_stock_producto` (`id_producto`);
-
---
--- Indexes for table `stock_productos_donacion`
---
-ALTER TABLE `stock_productos_donacion`
-  ADD PRIMARY KEY (`id_stock_productos_donaciones`),
-  ADD KEY `idx_spd_producto` (`id_producto`),
-  ADD KEY `idx_spd_stock` (`stock_productos`);
-
---
--- Indexes for table `unidades`
+-- Indices de la tabla `unidades`
 --
 ALTER TABLE `unidades`
-  ADD PRIMARY KEY (`id_unidad`),
-  ADD UNIQUE KEY `uq_unidades_nombre` (`nombre_unidad`),
-  ADD UNIQUE KEY `uq_unidades_abrev` (`abreviatura`);
+  ADD PRIMARY KEY (`id_unidad`);
 
 --
--- Indexes for table `usuarios`
+-- Indices de la tabla `usuario`
 --
-ALTER TABLE `usuarios`
+ALTER TABLE `usuario`
   ADD PRIMARY KEY (`id_usuario`),
-  ADD UNIQUE KEY `uq_usuarios_email` (`Email`);
+  ADD UNIQUE KEY `Email` (`Email`);
 
 --
--- AUTO_INCREMENT for dumped tables
+-- Indices de la tabla `verificar_contrasena`
+--
+ALTER TABLE `verificar_contrasena`
+  ADD PRIMARY KEY (`id_cod`),
+  ADD KEY `id_usuario` (`id_usuario`);
+
+--
+-- AUTO_INCREMENT de las tablas volcadas
 --
 
 --
--- AUTO_INCREMENT for table `categorias`
+-- AUTO_INCREMENT de la tabla `catalogo_productos`
+--
+ALTER TABLE `catalogo_productos`
+  MODIFY `id_catalogo` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT de la tabla `categorias`
 --
 ALTER TABLE `categorias`
   MODIFY `id_categoria` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
--- AUTO_INCREMENT for table `codigo_verificacion`
+-- AUTO_INCREMENT de la tabla `detalle`
 --
-ALTER TABLE `codigo_verificacion`
-  MODIFY `id_cod` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `detalle`
+  MODIFY `id_detalle` int(11) NOT NULL AUTO_INCREMENT;
 
 --
--- AUTO_INCREMENT for table `detalles_donacion`
---
-ALTER TABLE `detalles_donacion`
-  MODIFY `id_secuencia` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `direcciones`
+-- AUTO_INCREMENT de la tabla `direcciones`
 --
 ALTER TABLE `direcciones`
   MODIFY `id_direccion` int(11) NOT NULL AUTO_INCREMENT;
 
 --
--- AUTO_INCREMENT for table `donacion`
---
-ALTER TABLE `donacion`
-  MODIFY `id_donacion` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `estadistica`
---
-ALTER TABLE `estadistica`
-  MODIFY `id_estadistica` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `imagenes_productos`
---
-ALTER TABLE `imagenes_productos`
-  MODIFY `id_imagenes` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `movimiento`
+-- AUTO_INCREMENT de la tabla `movimiento`
 --
 ALTER TABLE `movimiento`
   MODIFY `id_movimiento` int(11) NOT NULL AUTO_INCREMENT;
 
 --
--- AUTO_INCREMENT for table `productos`
+-- AUTO_INCREMENT de la tabla `productos_donante`
 --
-ALTER TABLE `productos`
-  MODIFY `id_productos` int(11) NOT NULL AUTO_INCREMENT COMMENT 'ID producto.';
+ALTER TABLE `productos_donante`
+  MODIFY `id_producto_donante` int(11) NOT NULL AUTO_INCREMENT;
 
 --
--- AUTO_INCREMENT for table `retiros`
+-- AUTO_INCREMENT de la tabla `productos_solicitados`
 --
-ALTER TABLE `retiros`
-  MODIFY `id_retiro` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `productos_solicitados`
+  MODIFY `id_producto_solicitado` int(11) NOT NULL AUTO_INCREMENT;
 
 --
--- AUTO_INCREMENT for table `solicitudes`
+-- AUTO_INCREMENT de la tabla `solicitud`
 --
-ALTER TABLE `solicitudes`
+ALTER TABLE `solicitud`
   MODIFY `id_solicitud` int(11) NOT NULL AUTO_INCREMENT;
 
 --
--- AUTO_INCREMENT for table `stock_productos`
---
-ALTER TABLE `stock_productos`
-  MODIFY `id_stock` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `stock_productos_donacion`
---
-ALTER TABLE `stock_productos_donacion`
-  MODIFY `id_stock_productos_donaciones` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `unidades`
+-- AUTO_INCREMENT de la tabla `unidades`
 --
 ALTER TABLE `unidades`
-  MODIFY `id_unidad` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id_unidad` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=26;
 
 --
--- AUTO_INCREMENT for table `usuarios`
+-- AUTO_INCREMENT de la tabla `usuario`
 --
-ALTER TABLE `usuarios`
-  MODIFY `id_usuario` int(11) NOT NULL AUTO_INCREMENT COMMENT 'Identificador único.', AUTO_INCREMENT=5;
+ALTER TABLE `usuario`
+  MODIFY `id_usuario` int(11) NOT NULL AUTO_INCREMENT;
 
 --
--- Constraints for dumped tables
+-- AUTO_INCREMENT de la tabla `verificar_contrasena`
+--
+ALTER TABLE `verificar_contrasena`
+  MODIFY `id_cod` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- Restricciones para tablas volcadas
 --
 
 --
--- Constraints for table `codigo_verificacion`
+-- Filtros para la tabla `catalogo_productos`
 --
-ALTER TABLE `codigo_verificacion`
-  ADD CONSTRAINT `fk_codigo_usuario` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id_usuario`) ON UPDATE CASCADE;
+ALTER TABLE `catalogo_productos`
+  ADD CONSTRAINT `catalogo_productos_ibfk_1` FOREIGN KEY (`id_categoria`) REFERENCES `categorias` (`id_categoria`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `catalogo_productos_ibfk_2` FOREIGN KEY (`id_unidad`) REFERENCES `unidades` (`id_unidad`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
--- Constraints for table `detalles_donacion`
+-- Filtros para la tabla `detalle`
 --
-ALTER TABLE `detalles_donacion`
-  ADD CONSTRAINT `id_donacionfk` FOREIGN KEY (`id_donacionfk`) REFERENCES `donacion` (`id_donacion`),
-  ADD CONSTRAINT `id_productofk` FOREIGN KEY (`id_productofk`) REFERENCES `productos` (`id_productos`),
-  ADD CONSTRAINT `id_retirofk` FOREIGN KEY (`id_retirofk`) REFERENCES `retiros` (`id_retiro`);
+ALTER TABLE `detalle`
+  ADD CONSTRAINT `detalle_ibfk_1` FOREIGN KEY (`id_producto_solicitado`) REFERENCES `productos_solicitados` (`id_producto_solicitado`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
--- Constraints for table `direcciones`
+-- Filtros para la tabla `direcciones`
 --
 ALTER TABLE `direcciones`
-  ADD CONSTRAINT `fk_dir_usuario` FOREIGN KEY (`id_usuario_direcc`) REFERENCES `usuarios` (`id_usuario`) ON UPDATE CASCADE;
+  ADD CONSTRAINT `direcciones_ibfk_1` FOREIGN KEY (`id_usuario_direcc`) REFERENCES `usuario` (`id_usuario`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
--- Constraints for table `donante`
+-- Filtros para la tabla `donante`
 --
 ALTER TABLE `donante`
-  ADD CONSTRAINT `fk_donante_usuario` FOREIGN KEY (`id_usu_donante`) REFERENCES `usuarios` (`id_usuario`) ON UPDATE CASCADE;
+  ADD CONSTRAINT `donante_ibfk_1` FOREIGN KEY (`id_usu_donante`) REFERENCES `usuario` (`id_usuario`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
--- Constraints for table `estadistica`
---
-ALTER TABLE `estadistica`
-  ADD CONSTRAINT `fk_estad_donacion` FOREIGN KEY (`id_donacion`) REFERENCES `donacion` (`id_donacion`) ON UPDATE CASCADE;
-
---
--- Constraints for table `imagenes_productos`
---
-ALTER TABLE `imagenes_productos`
-  ADD CONSTRAINT `fk_img_producto` FOREIGN KEY (`id_productos`) REFERENCES `productos` (`id_productos`) ON DELETE CASCADE ON UPDATE CASCADE;
-
---
--- Constraints for table `movimiento`
+-- Filtros para la tabla `movimiento`
 --
 ALTER TABLE `movimiento`
-  ADD CONSTRAINT `id_donacion` FOREIGN KEY (`id_donacionfk`) REFERENCES `donacion` (`id_donacion`),
-  ADD CONSTRAINT `id_producto` FOREIGN KEY (`id_productofk`) REFERENCES `productos` (`id_productos`),
-  ADD CONSTRAINT `id_retiro` FOREIGN KEY (`id_retirofk`) REFERENCES `retiros` (`id_retiro`),
-  ADD CONSTRAINT `id_stock` FOREIGN KEY (`id_stockfk`) REFERENCES `stock_productos` (`id_stock`);
+  ADD CONSTRAINT `movimiento_ibfk_1` FOREIGN KEY (`id_producto_donante`) REFERENCES `productos_donante` (`id_producto_donante`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
--- Constraints for table `productos`
+-- Filtros para la tabla `productos_donante`
 --
-ALTER TABLE `productos`
-  ADD CONSTRAINT `id_categoriafk` FOREIGN KEY (`id_categoria`) REFERENCES `categorias` (`id_categoria`),
-  ADD CONSTRAINT `id_unidadfk` FOREIGN KEY (`id_unidad`) REFERENCES `unidades` (`id_unidad`);
+ALTER TABLE `productos_donante`
+  ADD CONSTRAINT `productos_donante_ibfk_1` FOREIGN KEY (`id_donante`) REFERENCES `donante` (`id_usu_donante`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `productos_donante_ibfk_2` FOREIGN KEY (`id_catalogo`) REFERENCES `catalogo_productos` (`id_catalogo`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
--- Constraints for table `receptor`
+-- Filtros para la tabla `productos_solicitados`
+--
+ALTER TABLE `productos_solicitados`
+  ADD CONSTRAINT `productos_solicitados_ibfk_1` FOREIGN KEY (`id_solicitud`) REFERENCES `solicitud` (`id_solicitud`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `productos_solicitados_ibfk_2` FOREIGN KEY (`id_producto_donante`) REFERENCES `productos_donante` (`id_producto_donante`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+--
+-- Filtros para la tabla `receptor`
 --
 ALTER TABLE `receptor`
-  ADD CONSTRAINT `fk_receptor_usuario` FOREIGN KEY (`id_usu_receptor`) REFERENCES `usuarios` (`id_usuario`) ON UPDATE CASCADE;
+  ADD CONSTRAINT `receptor_ibfk_1` FOREIGN KEY (`id_usu_receptor`) REFERENCES `usuario` (`id_usuario`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
--- Constraints for table `retiros`
+-- Filtros para la tabla `solicitud`
 --
-ALTER TABLE `retiros`
-  ADD CONSTRAINT `detalles_donacionfk` FOREIGN KEY (`detalles_donacionfk`) REFERENCES `detalles_donacion` (`id_secuencia`),
-  ADD CONSTRAINT `fk_retiro_direccion` FOREIGN KEY (`id_direcciones`) REFERENCES `direcciones` (`id_direccion`) ON UPDATE CASCADE,
-  ADD CONSTRAINT `id_don` FOREIGN KEY (`id_donacionfk`) REFERENCES `donacion` (`id_donacion`);
+ALTER TABLE `solicitud`
+  ADD CONSTRAINT `solicitud_ibfk_1` FOREIGN KEY (`id_receptor`) REFERENCES `receptor` (`id_usu_receptor`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
--- Constraints for table `solicitudes`
+-- Filtros para la tabla `verificar_contrasena`
 --
-ALTER TABLE `solicitudes`
-  ADD CONSTRAINT `fk_sol_donante` FOREIGN KEY (`id_donante`) REFERENCES `donante` (`id_usu_donante`) ON UPDATE CASCADE,
-  ADD CONSTRAINT `fk_sol_producto` FOREIGN KEY (`id_productos`) REFERENCES `productos` (`id_productos`) ON UPDATE CASCADE;
-
---
--- Constraints for table `stock_productos`
---
-ALTER TABLE `stock_productos`
-  ADD CONSTRAINT `fk_stock_donante` FOREIGN KEY (`id_donante`) REFERENCES `donante` (`id_usu_donante`) ON UPDATE CASCADE,
-  ADD CONSTRAINT `fk_stock_producto` FOREIGN KEY (`id_producto`) REFERENCES `productos` (`id_productos`) ON UPDATE CASCADE;
-
---
--- Constraints for table `stock_productos_donacion`
---
-ALTER TABLE `stock_productos_donacion`
-  ADD CONSTRAINT `fk_spd_producto` FOREIGN KEY (`id_producto`) REFERENCES `productos` (`id_productos`) ON UPDATE CASCADE,
-  ADD CONSTRAINT `fk_spd_stock` FOREIGN KEY (`stock_productos`) REFERENCES `stock_productos` (`id_stock`) ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE `verificar_contrasena`
+  ADD CONSTRAINT `verificar_contrasena_ibfk_1` FOREIGN KEY (`id_usuario`) REFERENCES `usuario` (`id_usuario`) ON DELETE CASCADE ON UPDATE CASCADE;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

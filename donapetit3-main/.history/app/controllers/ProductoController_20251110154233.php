@@ -288,27 +288,4 @@ class ProductoController extends Controller
             'productos' => $productos
         ]);
     }
-
-    /**
- * Muestra el formulario para solicitar un producto (placeholder)
- */
-public function solicitar(): void
-{
-    if (!isset($_SESSION['user'])) {
-        $_SESSION['error'] = 'Debes iniciar sesión.';
-        $this->redirect('?controller=Auth&action=mostrarLogin');
-        return;
-    }
-
-    $userRole = $_SESSION['user']['rol'] ?? '';
-    
-    if ($userRole !== 'receptor') {
-        $_SESSION['error'] = 'Solo los receptores pueden solicitar productos.';
-        $this->redirect('?controller=Home&action=index');
-        return;
-    }
-
-    $_SESSION['info'] = 'La funcionalidad de solicitudes estará disponible próximamente.';
-    $this->redirect('?controller=Producto&action=productosDisponibles');
-}
 }
