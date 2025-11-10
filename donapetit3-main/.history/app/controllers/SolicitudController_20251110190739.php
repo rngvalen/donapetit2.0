@@ -40,20 +40,19 @@ class SolicitudController extends Controller
 
         // Obtener nombre del donante
         $nombreDonante = 'Donante';
-        try {
-            ProductoDonante::initDb();
+        if (!empty($productos)) {
+            // Buscar el nombre comercial (tendremos que agregarlo al query)
+            Model::initDb();
             $sql = "SELECT d.nom_comercial, u.Nombre 
                     FROM donante d
-                    INNER JOIN usuarios u ON d.id_usu_donante = u.id_usuario
+                    INNER JOIN usuario u ON d.id_usu_donante = u.id_usuario
                     WHERE d.id_usu_donante = :id";
-            $stmt = ProductoDonante::getDb()->prepare($sql);
+            $stmt = Model::getDb()->prepare($sql);
             $stmt->execute([':id' => $idDonante]);
             $donante = $stmt->fetch(\PDO::FETCH_ASSOC);
             if ($donante) {
                 $nombreDonante = $donante['nom_comercial'] ?: $donante['Nombre'];
             }
-        } catch (\Throwable $e) {
-            error_log("Error al obtener nombre del donante: " . $e->getMessage());
         }
 
         $this->render('solicitudes.crear', [
@@ -90,17 +89,8 @@ class SolicitudController extends Controller
             $errores[] = 'Donante no válido.';
         }
 
-        // Verificar que hay al menos un producto con cantidad > 0
-        $hayProductos = false;
-        foreach ($productos as $cantidad) {
-            if ((int)$cantidad > 0) {
-                $hayProductos = true;
-                break;
-            }
-        }
-
-        if (!$hayProductos) {
-            $errores[] = 'Debes seleccionar al menos un producto con cantidad mayor a 0.';
+        if (empty($productos)) {
+            $errores[] = 'Debes seleccionar al menos un producto.';
         }
 
         if (!empty($errores)) {
@@ -130,7 +120,7 @@ class SolicitudController extends Controller
             }
 
             $_SESSION['success'] = 'Solicitud enviada exitosamente al donante.';
-            $this->redirect('?controller=Solicitud&action=missolicitudes');
+            $this->redirect('?controller=Solicitud&action=misSolicitudes');
 
         } catch (\Throwable $e) {
             error_log("Error al crear solicitud: " . $e->getMessage());
@@ -142,7 +132,7 @@ class SolicitudController extends Controller
     /**
      * Lista las solicitudes del receptor
      */
-    public function missolicitudes(): void
+    public function misSolicitudes(): void
     {
         if (!isset($_SESSION['user']) || $_SESSION['user']['rol'] !== 'receptor') {
             $_SESSION['error'] = 'Solo los receptores pueden ver sus solicitudes.';
@@ -162,7 +152,7 @@ class SolicitudController extends Controller
     /**
      * Lista las solicitudes recibidas por el donante
      */
-    public function solicitudesrecibidas(): void
+    public function solicitudesRecibidas(): void
     {
         if (!isset($_SESSION['user']) || $_SESSION['user']['rol'] !== 'donante') {
             $_SESSION['error'] = 'Solo los donantes pueden ver solicitudes recibidas.';
@@ -226,7 +216,7 @@ class SolicitudController extends Controller
 
         if ($idSolicitud <= 0) {
             $_SESSION['error'] = 'Solicitud no válida.';
-            $this->redirect('?controller=Solicitud&action=solicitudesrecibidas');
+            $this->redirect('?controller=Solicitud&action=solicitudesRecibidas');
             return;
         }
 
@@ -236,7 +226,7 @@ class SolicitudController extends Controller
             $_SESSION['error'] = 'Error al aprobar la solicitud.';
         }
 
-        $this->redirect('?controller=Solicitud&action=solicitudesrecibidas');
+        $this->redirect('?controller=Solicitud&action=solicitudesRecibidas');
     }
 
     /**
@@ -254,7 +244,7 @@ class SolicitudController extends Controller
 
         if ($idSolicitud <= 0) {
             $_SESSION['error'] = 'Solicitud no válida.';
-            $this->redirect('?controller=Solicitud&action=solicitudesrecibidas');
+            $this->redirect('?controller=Solicitud&action=solicitudesRecibidas');
             return;
         }
 
@@ -264,6 +254,6 @@ class SolicitudController extends Controller
             $_SESSION['error'] = 'Error al rechazar la solicitud.';
         }
 
-        $this->redirect('?controller=Solicitud&action=solicitudesrecibidas');
+        $this->redirect('?controller=Solicitud&action=solicitudesRecibidas');
     }
 }

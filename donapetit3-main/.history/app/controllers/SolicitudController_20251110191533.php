@@ -40,20 +40,22 @@ class SolicitudController extends Controller
 
         // Obtener nombre del donante
         $nombreDonante = 'Donante';
-        try {
-            ProductoDonante::initDb();
-            $sql = "SELECT d.nom_comercial, u.Nombre 
-                    FROM donante d
-                    INNER JOIN usuarios u ON d.id_usu_donante = u.id_usuario
-                    WHERE d.id_usu_donante = :id";
-            $stmt = ProductoDonante::getDb()->prepare($sql);
-            $stmt->execute([':id' => $idDonante]);
-            $donante = $stmt->fetch(\PDO::FETCH_ASSOC);
-            if ($donante) {
-                $nombreDonante = $donante['nom_comercial'] ?: $donante['Nombre'];
+        if (!empty($productos)) {
+            try {
+                ProductoDonante::initDb();
+                $sql = "SELECT d.nom_comercial, u.Nombre 
+                        FROM donante d
+                        INNER JOIN usuario u ON d.id_usu_donante = u.id_usuario
+                        WHERE d.id_usu_donante = :id";
+                $stmt = ProductoDonante::getDb()->prepare($sql);
+                $stmt->execute([':id' => $idDonante]);
+                $donante = $stmt->fetch(\PDO::FETCH_ASSOC);
+                if ($donante) {
+                    $nombreDonante = $donante['nom_comercial'] ?: $donante['Nombre'];
+                }
+            } catch (\Throwable $e) {
+                error_log("Error al obtener nombre del donante: " . $e->getMessage());
             }
-        } catch (\Throwable $e) {
-            error_log("Error al obtener nombre del donante: " . $e->getMessage());
         }
 
         $this->render('solicitudes.crear', [
@@ -90,17 +92,8 @@ class SolicitudController extends Controller
             $errores[] = 'Donante no válido.';
         }
 
-        // Verificar que hay al menos un producto con cantidad > 0
-        $hayProductos = false;
-        foreach ($productos as $cantidad) {
-            if ((int)$cantidad > 0) {
-                $hayProductos = true;
-                break;
-            }
-        }
-
-        if (!$hayProductos) {
-            $errores[] = 'Debes seleccionar al menos un producto con cantidad mayor a 0.';
+        if (empty($productos)) {
+            $errores[] = 'Debes seleccionar al menos un producto.';
         }
 
         if (!empty($errores)) {

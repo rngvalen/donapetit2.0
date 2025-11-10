@@ -111,11 +111,11 @@ foreach ($productos as $p) {
   <?php endif; ?>
 
   <!-- Botón flotante para ver mis solicitudes -->
-<div class="fixed bottom-8 right-8">
-  <a href="?controller=Solicitud&action=missolicitudes"
-     class="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-full shadow-2xl transition">
-    📋 Mis solicitudes
-  </a>
-</div>
+  <div class="fixed bottom-8 right-8">
+    <a href="?controller=Solicitud&action=misSolicitudes"
+       class="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-full shadow-2xl transition">
+      📋 Mis solicitudes
+    </a>
+  </div>
 
 </section>
