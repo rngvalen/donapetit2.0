@@ -70,8 +70,6 @@ $initial = strtoupper(mb_substr($userName, 0, 1, 'UTF-8'));
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>DonAppetit</title>
-    <link rel="icon" type="image/png" sizes="500x500" href="/donapetit3-main/public/assets/img/LogoDon.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="/donapetit3-main/public/assets/img/LogoDon.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -102,64 +100,64 @@ $initial = strtoupper(mb_substr($userName, 0, 1, 'UTF-8'));
     <header class="relative z-30 w-full bg-brand text-white shadow">
         <nav class="relative mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3">
             <!-- IZQUIERDA: Logo y nombre -->
-            <a href="index.php?controller=Home&action=index" class="flex items-center gap-3 flex-shrink-0">
+            <a href="index.php?controller=Home&action=index" class="flex items-center gap-3">
                 <div class="grid h-10 w-10 place-items-center rounded-xl bg-white/20 shadow-soft">
                     <span class="text-xl font-semibold">DA</span>
                 </div>
                 <span class="text-lg font-semibold tracking-tight">DonAppetit</span>
             </a>
 
-            <!-- DERECHA: Notificaciones, Menu y usuario -->
-            <div class="flex items-center gap-3 ml-auto">
-                
-                <!-- Campanita de notificaciones (para donantes y receptores) -->
-                <?php
-                $mostrarNotificaciones = false;
-                $totalNotificaciones = 0;
-                $linkNotificaciones = '#';
+      <!-- Campanita de notificaciones (para donantes y receptores) -->
+<?php
+$mostrarNotificaciones = false;
+$totalNotificaciones = 0;
+$linkNotificaciones = '#';
 
-                if ($userRole === 'donante' && $notificaciones > 0) {
-                    $mostrarNotificaciones = true;
-                    $totalNotificaciones = $notificaciones;
-                    $linkNotificaciones = 'index.php?controller=Solicitud&action=solicitudesrecibidas';
-                } elseif ($userRole === 'receptor') {
-                    try {
-                        require_once __DIR__ . '/../../model/Solicitud.php';
-                        $solicitudModel = new Solicitud();
-                        $resumen = $solicitudModel->obtenerResumenReceptor($userId);
-                        $totalNotificaciones = $resumen['Pendiente'] + $resumen['Aprobada'];
-                        if ($totalNotificaciones > 0) {
-                            $mostrarNotificaciones = true;
-                            $linkNotificaciones = 'index.php?controller=Solicitud&action=missolicitudes';
-                        }
-                    } catch (\Throwable $e) {
-                        error_log("Error al obtener notificaciones: " . $e->getMessage());
-                    }
-                }
-                ?>
+if ($userRole === 'donante' && $notificaciones > 0) {
+    $mostrarNotificaciones = true;
+    $totalNotificaciones = $notificaciones;
+    $linkNotificaciones = 'index.php?controller=Solicitud&action=solicitudesrecibidas';
+} elseif ($userRole === 'receptor') {
+    try {
+        require_once __DIR__ . '/../../model/Solicitud.php';
+        $solicitudModel = new Solicitud();
+        $resumen = $solicitudModel->obtenerResumenReceptor($userId);
+        // Contar pendientes + aprobadas recientemente
+        $totalNotificaciones = $resumen['Pendiente'] + $resumen['Aprobada'];
+        if ($totalNotificaciones > 0) {
+            $mostrarNotificaciones = true;
+            $linkNotificaciones = 'index.php?controller=Solicitud&action=missolicitudes';
+        }
+    } catch (\Throwable $e) {
+        error_log("Error al obtener notificaciones: " . $e->getMessage());
+    }
+}
+?>
 
-                <?php if ($mostrarNotificaciones): ?>
-                    <a href="<?= $linkNotificaciones ?>" 
-                       class="relative inline-flex items-center justify-center rounded-lg bg-white/10 p-2 hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 flex-shrink-0"
-                       aria-label="Ver notificaciones"
-                       title="<?= $userRole === 'donante' ? 'Solicitudes recibidas' : 'Mis solicitudes' ?>">
-                        
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                  d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
-                        </svg>
+<?php if ($mostrarNotificaciones): ?>
+    <a href="<?= $linkNotificaciones ?>" 
+       class="relative inline-flex items-center justify-center rounded-lg bg-white/10 p-2 hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+       aria-label="Ver notificaciones"
+       title="<?= $userRole === 'donante' ? 'Solicitudes recibidas' : 'Mis solicitudes' ?>">
+        
+        <!-- Icono de campanita -->
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                  d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+        </svg>
 
-                        <span class="absolute -top-1 -right-1 flex h-5 w-5">
-                            <span class="absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75 animate-ping"></span>
-                            <span class="relative inline-flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-xs font-bold text-white">
-                                <?= $totalNotificaciones > 9 ? '9+' : $totalNotificaciones ?>
-                            </span>
-                        </span>
-                    </a>
-                <?php endif; ?>
+        <!-- Badge con contador -->
+        <span class="absolute -top-1 -right-1 flex h-5 w-5">
+            <span class="absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75 animate-ping"></span>
+            <span class="relative inline-flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-xs font-bold text-white">
+                <?= $totalNotificaciones > 9 ? '9+' : $totalNotificaciones ?>
+            </span>
+        </span>
+    </a>
+<?php endif; ?>
 
                 <!-- Menu desplegable para escritorio -->
-                <div class="relative hidden md:block flex-shrink-0">
+                <div class="relative hidden md:block">
                     <button id="navDropdownToggle"
                         class="inline-flex items-center justify-center rounded-lg bg-white/10 p-2 hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
                         aria-label="Abrir menu desplegable" aria-expanded="false">
@@ -191,7 +189,7 @@ $initial = strtoupper(mb_substr($userName, 0, 1, 'UTF-8'));
 
                 <!-- Boton menu movil -->
                 <button id="btnMenu"
-                    class="inline-flex items-center justify-center rounded-lg bg-white/10 px-3 py-2 text-sm font-medium hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 md:hidden flex-shrink-0"
+                    class="inline-flex items-center justify-center rounded-lg bg-white/10 px-3 py-2 text-sm font-medium hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 md:hidden"
                     aria-label="Abrir menu movil" aria-expanded="false">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5" />
@@ -199,7 +197,7 @@ $initial = strtoupper(mb_substr($userName, 0, 1, 'UTF-8'));
                 </button>
 
                 <!-- Usuario -->
-                <div class="flex items-center gap-3 flex-shrink-0">
+                <div class="flex items-center gap-3">
                     <div class="hidden text-right leading-tight sm:block">
                         <span class="block text-xs opacity-70">Bienvenido</span>
                         <span class="block text-sm font-semibold">

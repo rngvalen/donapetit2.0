@@ -1,13 +1,10 @@
 <?php
 $user = htmlspecialchars($userName ?? 'Usuario', ENT_QUOTES, 'UTF-8');
 $rolTexto = $userRole === 'receptor' ? 'donantes' : 'otros donantes';
-?>
 
-<!-- Estilos adicionales para Leaflet -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<style>
-  #map { z-index: 1; }
-</style>
+// Incluir el header
+require_once __DIR__ . '/../layout/header.php';
+?>
 
 <!-- Contenido del mapa -->
 <section id="donapp-map" class="mx-auto w-full max-w-6xl py-8 px-4 flex flex-col gap-8">
@@ -75,13 +72,19 @@ $rolTexto = $userRole === 'receptor' ? 'donantes' : 'otros donantes';
           <h2 class="text-lg font-semibold text-slate-900">Negocios</h2>
           <span class="text-xs font-semibold uppercase text-brand" id="total-donantes">0 encontrados</span>
         </div>
-        <ul class="mt-4 space-y-4 max-h-96 overflow-y-auto" id="business-list">
+        <ul class="mt-4 space-y-4" id="business-list">
           <li class="text-center text-sm text-slate-500 py-8">Cargando...</li>
         </ul>
       </section>
     </aside>
   </div>
 </section>
+
+<!-- Estilos adicionales para Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  #map { z-index: 1; }
+</style>
 
 <!-- Scripts -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -93,7 +96,6 @@ $rolTexto = $userRole === 'receptor' ? 'donantes' : 'otros donantes';
     lat: <?= $userLat ?>, 
     lng: <?= $userLng ?> 
   };
-  const userRole = '<?= $userRole ?>';
 
   function initMap() {
     map = L.map('map').setView([userLocation.lat, userLocation.lng], 14);
@@ -136,47 +138,14 @@ $rolTexto = $userRole === 'receptor' ? 'donantes' : 'otros donantes';
         iconAnchor: [13, 13]
       });
       
-      // Popup mejorado con botones
-      let popupContent = `
-        <div style="min-width: 220px;">
-          <strong style="font-size: 14px; color: #0F1629;">${d.nombre}</strong><br>
-          <p style="margin: 8px 0; color: #64748b; font-size: 12px;">
-            📍 ${d.direccion}<br>
-            📦 ${d.productos} producto(s) disponible(s)<br>
-            📏 ${d.distancia || 'Calculando...'} km
-          </p>
-      `;
-
-      // Mostrar badge si hay solicitudes pendientes
-      if (userRole === 'receptor' && d.solicitudes_pendientes > 0) {
-        popupContent += `
-          <p style="margin-top: 8px; padding: 6px; background: #fef3c7; border-radius: 6px; color: #92400e; font-size: 11px; font-weight: 600;">
-            ⏳ Tienes ${d.solicitudes_pendientes} solicitud(es) pendiente(s)
-          </p>
-        `;
-      }
-
-      // Botones de acción (solo para receptores)
-      if (userRole === 'receptor') {
-        popupContent += `
-          <div style="display: flex; gap: 8px; margin-top: 12px;">
-            <a href="index.php?controller=Producto&action=productosDisponibles#donante-${d.id}" 
-               style="flex: 1; background: #0F1629; color: white; padding: 6px 12px; border-radius: 8px; text-align: center; text-decoration: none; font-size: 12px; font-weight: 600;">
-              Ver productos
-            </a>
-            <a href="index.php?controller=Solicitud&action=crear&id_donante=${d.id}" 
-               style="flex: 1; background: #10b981; color: white; padding: 6px 12px; border-radius: 8px; text-align: center; text-decoration: none; font-size: 12px; font-weight: 600;">
-              Solicitar
-            </a>
-          </div>
-        `;
-      }
-
-      popupContent += `</div>`;
-      
       const marker = L.marker([d.lat, d.lng], { icon: icon })
         .addTo(map)
-        .bindPopup(popupContent);
+        .bindPopup(`
+          <strong>${d.nombre}</strong><br>
+          📍 ${d.direccion}<br>
+          📦 ${d.productos} producto(s)<br>
+          📏 ${d.distancia || 'Calculando...'} km
+        `);
       
       markers.push(marker);
     });
@@ -193,54 +162,26 @@ $rolTexto = $userRole === 'receptor' ? 'donantes' : 'otros donantes';
       return;
     }
     
-    list.innerHTML = donantes.map((d, i) => {
-      let itemHTML = `
-        <li class="rounded-2xl border border-slate-200 bg-slate-50 p-4 hover:bg-slate-100 transition" data-lat="${d.lat}" data-lng="${d.lng}">
-          <div class="flex items-start gap-3 cursor-pointer" onclick="map.setView([${d.lat}, ${d.lng}], 16); markers[${i}].openPopup();">
-            <div class="flex h-10 w-10 items-center justify-center rounded-xl ${d.estado === 'online' ? 'bg-brand text-white' : 'bg-slate-300 text-slate-600'} text-sm font-semibold flex-shrink-0">
-              ${i + 1}
-            </div>
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-semibold text-slate-900 truncate">${d.nombre}</p>
-              <p class="mt-1 text-xs text-slate-500">${d.distancia || ''} km • ${d.productos} producto(s)</p>
-      `;
-
-      // Badge de solicitudes pendientes
-      if (userRole === 'receptor' && d.solicitudes_pendientes > 0) {
-        itemHTML += `
-              <p class="mt-2 text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-lg inline-block">
-                ⏳ ${d.solicitudes_pendientes} pendiente(s)
-              </p>
-        `;
-      }
-
-      itemHTML += `
-            </div>
-            <span class="text-xs font-semibold ${d.estado === 'online' ? 'text-brand' : 'text-slate-400'} flex-shrink-0">
-              ${d.estado === 'online' ? '●' : '○'}
-            </span>
-          </div>
-      `;
-
-      // Botones de acción (solo para receptores)
-      if (userRole === 'receptor') {
-        itemHTML += `
-          <div class="flex gap-2 mt-3">
-            <a href="index.php?controller=Producto&action=productosDisponibles#donante-${d.id}" 
-               class="flex-1 text-center px-3 py-2 bg-brand text-white text-xs font-semibold rounded-lg hover:bg-brand/90 transition">
-              Ver productos
-            </a>
-            <a href="index.php?controller=Solicitud&action=crear&id_donante=${d.id}" 
-               class="flex-1 text-center px-3 py-2 bg-green-600 text-white text-xs font-semibold rounded-lg hover:bg-green-700 transition">
-              Solicitar
-            </a>
-          </div>
-        `;
-      }
-
-      itemHTML += `</li>`;
-      return itemHTML;
-    }).join('');
+    list.innerHTML = donantes.map((d, i) => `
+      <li class="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 hover:bg-slate-100 transition cursor-pointer" data-lat="${d.lat}" data-lng="${d.lng}">
+        <div class="flex h-10 w-10 items-center justify-center rounded-xl ${d.estado === 'online' ? 'bg-brand text-white' : 'bg-slate-300 text-slate-600'} text-sm font-semibold">
+          ${i + 1}
+        </div>
+        <div class="flex-1">
+          <p class="text-sm font-semibold text-slate-900">${d.nombre}</p>
+          <p class="mt-1 text-xs text-slate-500">${d.distancia || ''} km • ${d.productos} producto(s)</p>
+        </div>
+        <span class="text-xs font-semibold ${d.estado === 'online' ? 'text-brand' : 'text-slate-400'}">
+          ${d.estado === 'online' ? '●' : '○'}
+        </span>
+      </li>
+    `).join('');
+    
+    list.querySelectorAll('li[data-lat]').forEach(item => {
+      item.addEventListener('click', function() {
+        map.setView([parseFloat(this.dataset.lat), parseFloat(this.dataset.lng)], 16);
+      });
+    });
   }
 
   function calcularDistancia(lat1, lng1, lat2, lng2) {
@@ -293,3 +234,16 @@ $rolTexto = $userRole === 'receptor' ? 'donantes' : 'otros donantes';
   initMap();
 })();
 </script>
+
+<?php
+// Incluir el footer
+require_once __DIR__ . '/../layout/footer.php';
+?>
+
+
+<?php
+echo "Buscando en: " . __DIR__ . '/../layout/header.php';
+echo "<br>";
+echo "Existe: " . (file_exists(__DIR__ . '/../layout/header.php') ? 'SÍ' : 'NO');
+exit;
+?>

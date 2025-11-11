@@ -70,8 +70,7 @@ $initial = strtoupper(mb_substr($userName, 0, 1, 'UTF-8'));
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>DonAppetit</title>
-    <link rel="icon" type="image/png" sizes="500x500" href="/donapetit3-main/public/assets/img/LogoDon.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="/donapetit3-main/public/assets/img/LogoDon.png">
+    <link rel="icon" type="image/png" href="/donapetit3-main/public/assets/img/LogoDon.ico">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {

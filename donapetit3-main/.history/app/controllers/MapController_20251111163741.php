@@ -9,45 +9,38 @@ class Mapcontroller extends Controller
     /**
      * Muestra el mapa con donantes cercanos
      */
-public function index(): void
-{
-    if (!isset($_SESSION['user'])) {
-        header('Location: ?controller=Auth&action=mostrarLogin');
-        exit;
+    public function index(): void
+    {
+        if (!isset($_SESSION['user'])) {
+            header('Location: ?controller=Auth&action=mostrarLogin');
+            exit;
+        }
+
+        $userName = $_SESSION['user']['name'];
+        $userId = $_SESSION['user']['id'];
+        $userRole = $_SESSION['user']['rol'] ?? 'donante';
+
+        // Obtener ubicación del usuario actual
+        $ubicacionUsuario = $this->obtenerUbicacionUsuario($userId);
+
+        // Obtener donantes cercanos
+        $donantes = $this->obtenerDonantes($userId, $userRole);
+
+        // Debug temporal
+        error_log("=== MAP DEBUG ===");
+        error_log("User ID: " . $userId);
+        error_log("User Role: " . $userRole);
+        error_log("Ubicación Usuario: " . json_encode($ubicacionUsuario));
+        error_log("Total Donantes: " . count($donantes));
+
+        // Pasar variables correctamente a la vista
+        $userLat = $ubicacionUsuario['lat'];
+        $userLng = $ubicacionUsuario['lng'];
+        $userDir = $ubicacionUsuario['direccion'];
+
+        // Renderizar la vista directamente
+        require __DIR__ . '/../view/map/map.php';
     }
-
-    $userName = $_SESSION['user']['name'];
-    $userId = $_SESSION['user']['id'];
-    $userRole = $_SESSION['user']['rol'] ?? 'donante';
-
-    // Obtener ubicación del usuario actual
-    $ubicacionUsuario = $this->obtenerUbicacionUsuario($userId);
-
-    // Obtener donantes cercanos
-    $donantes = $this->obtenerDonantes($userId, $userRole);
-
-    // Debug temporal
-    error_log("=== MAP DEBUG ===");
-    error_log("User ID: " . $userId);
-    error_log("User Role: " . $userRole);
-    error_log("Ubicación Usuario: " . json_encode($ubicacionUsuario));
-    error_log("Total Donantes: " . count($donantes));
-
-    // Pasar variables correctamente a la vista
-    $userLat = $ubicacionUsuario['lat'];
-    $userLng = $ubicacionUsuario['lng'];
-    $userDir = $ubicacionUsuario['direccion'];
-
-    // Renderizar la vista usando el método render() que incluye header y footer
-    $this->render('map.map', [
-        'userName' => $userName,
-        'userRole' => $userRole,
-        'userLat' => $userLat,
-        'userLng' => $userLng,
-        'userDir' => $userDir,
-        'donantes' => $donantes
-    ]);
-}
 
     /**
      * Obtiene la ubicación del usuario desde la tabla direcciones
