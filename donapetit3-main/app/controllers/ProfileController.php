@@ -85,7 +85,7 @@ class Profilecontroller extends Controller
             header('Location: ?controller=Home&action=index');
             exit;
 
-        } catch (PDOException $e) {
+        } catch (\PDOException $e) {
             // Revertir en caso de error
             if ($conn->inTransaction()) {
                 $conn->rollBack();
@@ -158,7 +158,7 @@ class Profilecontroller extends Controller
             header('Location: ?controller=Home&action=index');
             exit;
 
-        } catch (PDOException $e) {
+        } catch (\PDOException $e) {
             // Revertir en caso de error
             if ($conn->inTransaction()) {
                 $conn->rollBack();

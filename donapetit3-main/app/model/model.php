@@ -25,6 +25,11 @@ class Model
         }
 
         $configPath = __DIR__ . '/../../config/bdconexion.php';
+
+        if (!file_exists($configPath)) {
+            throw new \RuntimeException('No se encontro el archivo de configuracion de la base de datos.');
+        }
+
         $pdo = require $configPath;
 
         if (!$pdo instanceof \PDO) {
@@ -32,6 +37,16 @@ class Model
         }
 
         self::$db = $pdo;
+    }
+
+    /**
+     * Retorna la instancia PDO compartida.
+     * @return \PDO
+     */
+    protected static function getDb(): \PDO
+    {
+        self::initDb();
+        return self::$db;
     }
 
     /**

@@ -47,9 +47,10 @@ class Donante extends Model {
      * @return array|null Registro del donante o null si no existe
      */
     public function buscarPorCUIT($cuit) {
+        self::initDb();
         $stmt = self::$db->prepare("SELECT * FROM {$this->table} WHERE CUIT = ?");
         $stmt->execute([$cuit]);
-        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        return $stmt->fetch(\PDO::FETCH_ASSOC) ?: null;
     }
 
     /**

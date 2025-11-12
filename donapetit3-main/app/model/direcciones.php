@@ -48,11 +48,12 @@ class Direccion extends Model {
      * @return array
      */
     public function findByUsuario($idUsuario): array {
+        self::initDb();
         $stmt = self::$db->prepare(
             "SELECT * FROM {$this->table} WHERE id_usuario_direcc = ?"
         );
         $stmt->execute([$idUsuario]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
     }
 
     /**

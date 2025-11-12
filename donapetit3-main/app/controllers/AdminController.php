@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/controller.php';
-require_once __DIR__ . '/../model/Producto.php';
+require_once __DIR__ . '/../model/ProductoDonante.php';
 
 /**
  * Controlador del panel principal de administracion.
@@ -10,13 +10,36 @@ require_once __DIR__ . '/../model/Producto.php';
 class AdminController extends Controller
 {
     /**
+     * Verifica que el usuario tenga rol de administrador.
+     * Redirige al home si no es admin.
+     */
+    private function verificarAdmin(): void
+    {
+        if (!isset($_SESSION['user']) || $_SESSION['user']['rol'] !== 'admin') {
+            $_SESSION['error'] = 'Acceso no autorizado. Solo administradores.';
+            $this->redirect('?controller=Home&action=index');
+            exit;
+        }
+    }
+
+    /**
+     * Redirige a la vista principal (para compatibilidad).
+     */
+    public function index(): void
+    {
+        $this->principal();
+    }
+
+    /**
      * Muestra la vista principal del panel administrativo con resumenes, alertas y listados.
      *
      * @return void
      */
     public function principal(): void
     {
-        $productos = Producto::all(500, 0);
+        $this->verificarAdmin();
+        $productoDonante = new ProductoDonante();
+        $productos = $productoDonante->obtenerTodosParaAdmin(500, 0);
         $normalizados = array_map([$this, 'normalizeProducto'], $productos);
 
         $lowStockList = $this->filterLowStock($normalizados);
@@ -41,13 +64,6 @@ class AdminController extends Controller
             )
         );
     }
-
-    /**
-     * Muestra la configuración de notificaciones del panel.
-     *
-     * @return void
-     */
-    
 
     /**
      * Normaliza los campos de un producto para facilitar su consumo.
@@ -250,7 +266,40 @@ class AdminController extends Controller
      * @param array<int,array<string,mixed>> $productos Coleccion normalizada.
      * @return array<int,array<string,mixed>> Productos con stock bajo.
      */
-    
+    private function filterLowStock(array $productos): array
+    {
+        return array_filter(
+            $productos,
+            static function (array $producto): bool {
+                $cantidad = $producto['cantidad'] ?? null;
+                return $cantidad !== null && $cantidad <= 5;
+            }
+        );
+    }
+
+    /**
+     * Detecta productos proximos a vencer (en los proximos 7 dias).
+     *
+     * @param array<int,array<string,mixed>> $productos Coleccion normalizada.
+     * @return array<int,array<string,mixed>> Productos por vencer.
+     */
+    private function filterExpiring(array $productos): array
+    {
+        $today = new \DateTimeImmutable('today');
+        $sevenDaysFromNow = $today->modify('+7 days');
+
+        return array_filter(
+            $productos,
+            static function (array $producto) use ($today, $sevenDaysFromNow): bool {
+                $fecha = $producto['fecha_vencimiento'] ?? null;
+                if (!($fecha instanceof \DateTimeImmutable)) {
+                    return false;
+                }
+                return $fecha >= $today && $fecha <= $sevenDaysFromNow;
+            }
+        );
+    }
+
     /**
      * Construye una linea de tiempo con los ultimos productos registrados.
      *
@@ -398,6 +447,17 @@ class AdminController extends Controller
             default:
                 return 'bg-slate-100 text-slate-700';
         }
+    }
+
+    /**
+     * Muestra la vista de gestión de usuarios (placeholder).
+     */
+    public function usuarios(): void
+    {
+        $this->verificarAdmin();
+
+        $_SESSION['info'] = 'La gestión de usuarios estará disponible próximamente.';
+        $this->redirect('?controller=Admin&action=index');
     }
 }
 

@@ -13,6 +13,10 @@ $totalCantidadDonada = $totalCantidadDonada ?? 0;
 $topProductos = $topProductos ?? ['labels' => ['Sin datos'], 'values' => [0]];
 $frecuenciaMensual = $frecuenciaMensual ?? ['labels' => ['Sin datos'], 'values' => [0]];
 
+// Detectar el rol del usuario
+$userRole = $_SESSION['user']['rol'] ?? 'donante';
+$isDonante = $userRole === 'donante';
+
 $topProductos['labels'] = array_values($topProductos['labels']);
 $topProductos['values'] = array_map('intval', array_values($topProductos['values']));
 $frecuenciaMensual['labels'] = array_values($frecuenciaMensual['labels']);
@@ -33,20 +37,29 @@ $frecuenciaValoresJson = $frecuenciaValoresJson !== false ? $frecuenciaValoresJs
 ?>
 
 <section aria-labelledby="titulo-panel" class="mx-auto w-full max-w-5xl py-8 font-sans">
-  <h1 id="titulo-panel" class="mb-8 text-center text-2xl font-semibold text-[#2b473a] sm:text-3xl">
-    Panel de Administracion
+  <h1 id="titulo-panel" class="mb-2 text-center text-2xl font-semibold text-brand sm:text-3xl">
+    <?php echo $isDonante ? 'Estadísticas de mis Donaciones' : 'Estadísticas de mis Solicitudes'; ?>
   </h1>
+  <p class="mb-8 text-center text-sm text-slate-600">
+    <?php echo $isDonante
+      ? 'Visualiza el impacto de tus donaciones y productos más solicitados'
+      : 'Visualiza tu historial de solicitudes y productos más recibidos'; ?>
+  </p>
 
   <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
     <article class="rounded-2xl bg-white p-6 shadow transition-transform hover:-translate-y-0.5 hover:shadow-lg">
-      <h2 class="m-0 text-sm font-semibold text-[#416d56]">Total Donaciones</h2>
+      <h2 class="m-0 text-sm font-semibold text-[#416d56]">
+        <?php echo $isDonante ? 'Total Donaciones' : 'Total Solicitudes'; ?>
+      </h2>
       <p class="mt-2 text-2xl font-semibold text-slate-900">
         <?php echo htmlspecialchars($totalDonacionesLabel, ENT_QUOTES, 'UTF-8'); ?>
       </p>
     </article>
 
     <article class="rounded-2xl bg-white p-6 shadow transition-transform hover:-translate-y-0.5 hover:shadow-lg">
-      <h2 class="m-0 text-sm font-semibold text-[#416d56]">Alimentos Salvados</h2>
+      <h2 class="m-0 text-sm font-semibold text-[#416d56]">
+        <?php echo $isDonante ? 'Alimentos Salvados' : 'Alimentos Recibidos'; ?>
+      </h2>
       <p class="mt-2 text-2xl font-semibold text-slate-900">
         <?php echo htmlspecialchars($alimentosSalvadosLabel, ENT_QUOTES, 'UTF-8'); ?> unidades
       </p>
@@ -55,12 +68,16 @@ $frecuenciaValoresJson = $frecuenciaValoresJson !== false ? $frecuenciaValoresJs
 
   <div class="mt-12 flex flex-col items-center gap-8">
     <div class="w-full max-w-xl rounded-2xl bg-white p-6 shadow">
-      <h2 class="mb-4 text-base font-semibold text-[#2b473a]">Productos mas frecuentes</h2>
+      <h2 class="mb-4 text-base font-semibold text-[#2b473a]">
+        <?php echo $isDonante ? 'Productos más donados' : 'Productos más solicitados'; ?>
+      </h2>
       <canvas id="productosChart" class="h-64 w-full"></canvas>
     </div>
 
     <div class="w-full max-w-xl rounded-2xl bg-white p-6 shadow">
-      <h2 class="mb-4 text-base font-semibold text-[#2b473a]">Frecuencia mensual</h2>
+      <h2 class="mb-4 text-base font-semibold text-[#2b473a]">
+        <?php echo $isDonante ? 'Frecuencia mensual de donaciones' : 'Frecuencia mensual de solicitudes'; ?>
+      </h2>
       <canvas id="frecuenciaChart" class="h-64 w-full"></canvas>
     </div>
   </div>
@@ -95,12 +112,14 @@ $frecuenciaValoresJson = $frecuenciaValoresJson !== false ? $frecuenciaValoresJs
       return baseColors[index % baseColors.length];
     });
 
+    var isDonante = <?php echo $isDonante ? 'true' : 'false'; ?>;
+
     new Chart(productosCanvas.getContext('2d'), {
       type: 'bar',
       data: {
         labels: productosLabels,
         datasets: [{
-          label: 'Cantidad',
+          label: isDonante ? 'Cantidad donada' : 'Cantidad solicitada',
           data: productosData,
           backgroundColor: productosColors,
           borderRadius: 6,
@@ -138,7 +157,7 @@ $frecuenciaValoresJson = $frecuenciaValoresJson !== false ? $frecuenciaValoresJs
       data: {
         labels: frecuenciaLabels,
         datasets: [{
-          label: 'Donaciones',
+          label: isDonante ? 'Donaciones' : 'Solicitudes',
           data: frecuenciaData,
           borderColor: '#3d538f',
           backgroundColor: 'rgba(65, 109, 86, 0.12)',

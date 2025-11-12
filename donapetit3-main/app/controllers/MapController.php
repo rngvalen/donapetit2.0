@@ -57,10 +57,10 @@ class Mapcontroller extends Controller
                     WHERE id_usuario_direcc = :id";
             
             $stmt = $conn->prepare($sql);
-            $stmt->bindParam(':id', $userId, PDO::PARAM_INT);
+            $stmt->bindParam(':id', $userId, \PDO::PARAM_INT);
             $stmt->execute();
 
-            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            $result = $stmt->fetch(\PDO::FETCH_ASSOC);
 
             if ($result && $result['Latitud'] && $result['Longitud']) {
                 return [
@@ -77,7 +77,7 @@ class Mapcontroller extends Controller
                 'direccion' => 'Ubicación no configurada'
             ];
 
-        } catch (PDOException $e) {
+        } catch (\PDOException $e) {
             error_log("Error al obtener ubicación: " . $e->getMessage());
             return [
                 'lat' => -27.4692,
@@ -122,15 +122,15 @@ class Mapcontroller extends Controller
             $sql .= " ORDER BY u.Nombre";
 
             $stmt = $conn->prepare($sql);
-            
+
             if ($userRole === 'donante') {
-                $stmt->bindParam(':userId', $userId, PDO::PARAM_INT);
+                $stmt->bindParam(':userId', $userId, \PDO::PARAM_INT);
             }
-            
+
             $stmt->execute();
 
             $donantes = [];
-            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
                 $donantes[] = [
                     'id' => (int)$row['id_usuario'],
                     'nombre' => $row['nom_comercial'] ?? $row['Nombre'],
@@ -147,7 +147,7 @@ class Mapcontroller extends Controller
 
             return $donantes;
 
-        } catch (PDOException $e) {
+        } catch (\PDOException $e) {
             error_log("Error al obtener donantes: " . $e->getMessage());
             error_log("SQL que falló: " . ($sql ?? 'N/A'));
             return [];

@@ -1,15 +1,18 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/../model/Auth.php';
+require_once __DIR__ . '/../services/EmailService.php';
 
 class AuthController {
     private $auth;
+    private $emailService;
 
     public function __construct() {
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
         $this->auth = new Auth();
+        $this->emailService = new EmailService();
     }
 
     public function mostrarRegistro(): void {
@@ -132,10 +135,23 @@ class AuthController {
             exit;
         }
 
+        // Enviar código por email
+        $emailEnviado = $this->emailService->enviarCodigoRecuperacion(
+            $resultado['email'],
+            $resultado['nombre'],
+            $resultado['codigo']
+        );
+
+        if (!$emailEnviado) {
+            $_SESSION['error'] = 'El código fue generado pero no se pudo enviar el email. Contacta al administrador.';
+            header('Location: ?controller=Auth&action=mostrarRecuperacion');
+            exit;
+        }
+
         // Guardar email en sesión para el siguiente paso
         $_SESSION['recuperacion_email'] = $email;
-        $_SESSION['success'] = 'Código de recuperación: <strong>' . $resultado['codigo'] . '</strong><br><small>Válido por 15 minutos.</small>';
-        
+        $_SESSION['success'] = 'Se ha enviado un código de recuperación a tu email. Revisa tu bandeja de entrada.';
+
         header('Location: ?controller=Auth&action=mostrarVerificarCodigo');
         exit;
     }

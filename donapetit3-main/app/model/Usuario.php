@@ -36,7 +36,7 @@ class Usuario {
         $stmt = $this->conn->prepare($query);
         $stmt->execute();
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
     }
 
 
@@ -46,7 +46,7 @@ class Usuario {
         $stmt->bindParam(":id", $id);
         $stmt->execute();
 
-        return $stmt->fetch(PDO::FETCH_ASSOC);
+        return $stmt->fetch(\PDO::FETCH_ASSOC);
     }
 }
 

@@ -3,293 +3,253 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/model.php';
 
-/**
- * model:   producto.php
- * Modelo Producto para administrar la tabla productos.
- */
 class Producto extends Model
 {
-    protected string $table = 'productos';
-    protected string $pk = 'id_productos';
+    protected string $table = 'cargar_productos';
+    protected string $pk = 'id_carga_producto';
 
     /**
-     * Genera un payload serializado para guardar en la columna comentario.
-     *
-     * @param array<string,mixed> $data
-     */
-    private function encodeComentario(array $data): string
-    {
-        $defaults = [
-            'nom_producto' => '',
-            'unidad' => '',
-            'cantidad' => null,
-            'fecha_vencimiento' => null,
-            'comentarios' => null,
-            'estado' => 'DISPONIBLE',
-            'categoria' => null,
-            'categoria_id' => null,
-        ];
-
-        $payload = array_merge($defaults, array_intersect_key($data, $defaults));
-
-        $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        return $json !== false ? $json : json_encode($defaults, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-    }
-
-    /**
-     * Decodifica la columna comentario y normaliza el arreglo resultante.
-     *
-     * @param array<string,mixed> $row
-     * @return array<string,mixed>
-     */
-    private function normalizeRow(array $row): array
-    {
-        $decoded = [];
-        if (isset($row['comentario']) && is_string($row['comentario'])) {
-            $decoded = json_decode($row['comentario'], true) ?: [];
-        }
-
-        if (!is_array($decoded)) {
-            $decoded = [];
-        }
-
-        $defaults = [
-            'nom_producto' => '',
-            'unidad' => '',
-            'cantidad' => null,
-            'fecha_vencimiento' => null,
-            'comentarios' => null,
-            'estado' => 'DISPONIBLE',
-            'categoria_id' => null,
-            'categoria' => null,
-        ];
-
-        $data = array_merge($defaults, $decoded);
-
-        if ($data['cantidad'] !== null) {
-            $data['cantidad'] = (int)$data['cantidad'];
-        }
-
-        if ($data['fecha_vencimiento'] === '') {
-            $data['fecha_vencimiento'] = null;
-        }
-
-        if ($data['comentarios'] === '') {
-            $data['comentarios'] = null;
-        }
-
-        if ($data['categoria_id'] !== null) {
-            $data['categoria_id'] = (int)$data['categoria_id'];
-        }
-        if ($data['categoria'] === '') {
-            $data['categoria'] = null;
-        }
-
-        $data['id_producto'] = isset($row['id_productos']) ? (int)$row['id_productos'] : null;
-        $data['id_productos'] = $data['id_producto'];
-        $data['created_at'] = $row['create_at'] ?? null;
-        $data['updated_at'] = $row['update_at'] ?? null;
-
-        return $data;
-    }
-
-    /**
-     * Obtiene la lista de nombres disponibles a partir de los productos existentes.
-     *
-     * @return array<int,string>
+     * Obtiene la lista de nombres disponibles en el catálogo
      */
     public function obtenerNombresDisponibles(): array
     {
-        $todos = self::all(1000, 0);
-        $nombres = [];
-        foreach ($todos as $row) {
-            $nombre = trim((string)($row['nom_producto'] ?? ''));
-            if ($nombre === '') {
-                continue;
-            }
-            $nombres[$nombre] = true;
-        }
-        $lista = array_keys($nombres);
-        sort($lista, SORT_NATURAL | SORT_FLAG_CASE);
-        return $lista;
-    }
-
-    /**
-     * Crea un nuevo producto almacenando los datos en formato JSON dentro de comentario.
-     */
-    public function crear(
-        string $nombre,
-        string $unidad,
-        ?int $cantidad = null,
-        ?string $fechaVencimiento = null,
-        ?string $comentarios = null,
-        ?string $estado = null,
-        ?int $categoriaId = null,
-        ?string $categoriaNombre = null
-    ): string {
         self::initDb();
-
-        $now = (new \DateTimeImmutable('now'))->format('Y-m-d H:i:s');
-        $comment = $this->encodeComentario([
-            'nom_producto' => $nombre,
-            'unidad' => $unidad,
-            'cantidad' => $cantidad,
-            'fecha_vencimiento' => $fechaVencimiento,
-            'comentarios' => $comentarios,
-            'estado' => $estado ?? 'DISPONIBLE',
-            'categoria_id' => $categoriaId,
-            'categoria' => $categoriaNombre,
-        ]);
-
-        return $this->insert([
-            'create_at' => $now,
-            'update_at' => $now,
-            'comentario' => $comment,
-        ]);
+        
+        $sql = "SELECT DISTINCT nom_producto FROM cargar_productos ORDER BY nom_producto ASC";
+        $stmt = self::$db->query($sql);
+        $resultados = $stmt->fetchAll(\PDO::FETCH_COLUMN);
+        
+        return array_values($resultados);
     }
 
     /**
-     * Actualiza un producto existente serializando nuevamente sus datos.
-     */
-    public function actualizarProducto(
-        $id,
-        string $nombre,
-        string $unidad,
-        ?int $cantidad = null,
-        ?string $fechaVencimiento = null,
-        ?string $comentarios = null,
-        ?string $estado = null,
-        ?int $categoriaId = null,
-        ?string $categoriaNombre = null
-    ): bool {
-        self::initDb();
-
-        $existing = parent::find($id);
-        if (!$existing) {
-            return false;
-        }
-
-        $decoded = $this->normalizeRow($existing);
-
-        $decoded['nom_producto'] = $nombre;
-        $decoded['unidad'] = $unidad;
-        $decoded['cantidad'] = $cantidad;
-        $decoded['fecha_vencimiento'] = $fechaVencimiento;
-        $decoded['comentarios'] = $comentarios;
-        if ($estado !== null) {
-            $decoded['estado'] = $estado;
-        }
-        if ($categoriaId !== null) {
-            $decoded['categoria_id'] = $categoriaId;
-        }
-        if ($categoriaNombre !== null) {
-            $decoded['categoria'] = $categoriaNombre;
-        }
-
-        $now = (new \DateTimeImmutable('now'))->format('Y-m-d H:i:s');
-
-        return $this->update($id, [
-            'comentario' => $this->encodeComentario($decoded),
-            'update_at' => $now,
-        ]);
-    }
-
-    /**
-     * Busca por nombre dentro del JSON almacenado.
-     *
-     * @return array<int,array<string,mixed>>
-     */
-    public function encontrarPorNombre(string $nombre): array
-    {
-        $todos = self::all(1000, 0);
-        $needle = trim($nombre);
-        if ($needle === '') {
-            return $todos;
-        }
-        $needleLower = function_exists('mb_strtolower') ? mb_strtolower($needle, 'UTF-8') : strtolower($needle);
-        $filtered = [];
-        foreach ($todos as $row) {
-            $value = (string)($row['nom_producto'] ?? '');
-            $haystack = function_exists('mb_strtolower') ? mb_strtolower($value, 'UTF-8') : strtolower($value);
-            if (strpos($haystack, $needleLower) !== false) {
-                $filtered[] = $row;
-            }
-        }
-        return $filtered;
-    }
-
-    public function encontrarPorId($id)
-    {
-        $row = parent::find($id);
-        return $row ? $this->normalizeRow($row) : null;
-    }
-
-    public function eliminarPorId($id): bool
-    {
-        return $this->delete($id);
-    }
-
-    public static function all(int $limit = 100, int $offset = 0): array
-    {
-        $rows = parent::all($limit, $offset);
-        $instance = new static();
-        return array_map(static fn($row) => $instance->normalizeRow($row), $rows);
-    }
-
-    /**
-     * Busca el ID de un producto por su nombre en el catálogo
-     * 
-     * @param string $nombre Nombre del producto
-     * @return int|null ID del producto o null si no existe
+     * Busca un producto en el catálogo por su nombre
      */
     public function obtenerIdPorNombre(string $nombre): ?int
     {
         self::initDb();
         
-        $sql = "SELECT id_productos FROM productos WHERE comentario LIKE :nombre LIMIT 1";
-        
+        $sql = "SELECT id_carga_producto FROM cargar_productos WHERE nom_producto = :nombre LIMIT 1";
         $stmt = self::$db->prepare($sql);
-        $stmt->execute(['nombre' => '%"nom_producto":"' . $nombre . '"%']);
+        $stmt->execute([':nombre' => $nombre]);
         
         $result = $stmt->fetch(\PDO::FETCH_ASSOC);
         
-        return $result ? (int)$result['id_productos'] : null;
+        return $result ? (int)$result['id_carga_producto'] : null;
     }
 
-    /**
-     * Registra stock de un producto para un donante específico
-     * Guarda en la tabla stock_productos
-     * 
-     * @param int $idProducto ID del producto (productos.id_productos)
-     * @param int $idDonante ID del usuario donante
-     * @param int $cantidad Cantidad disponible
-     * @param string|null $fechaVencimiento Fecha de vencimiento (Y-m-d)
-     * @return int ID del stock creado
-     */
-    public function registrarStock(
-        int $idProducto,
-        int $idDonante,
-        int $cantidad,
-        ?string $fechaVencimiento = null
-    ): int {
-        self::initDb();
-        
-        $sql = "INSERT INTO stock_productos 
-                (id_producto, id_donante, cantidad, fecha_venc, create_at, update_at) 
-                VALUES (:id_producto, :id_donante, :cantidad, :fecha_venc, :create_at, :update_at)";
-        
-        $now = date('Y-m-d H:i:s');
+   /**
+ * Crea un nuevo producto en el catálogo base
+ */
+public function crearProductoCatalogo(
+    string $nombre,
+    int $idUnidad,
+    int $idCategoria,
+    int $idDonante,
+    string $tipoOrigen = 'donante',
+    int $estado = 1
+): int {
+    self::initDb();
+    
+    $now = (new \DateTimeImmutable('now'))->format('Y-m-d H:i:s');
+    
+    try {
+        $sql = "INSERT INTO cargar_productos 
+                (nom_producto, id_unidades, id_categorias, id_donante, tipo_origen, estado, create_at) 
+                VALUES (:nom_producto, :id_unidades, :id_categorias, :id_donante, :tipo_origen, :estado, :create_at)";
         
         $stmt = self::$db->prepare($sql);
         $stmt->execute([
-            'id_producto' => $idProducto,
-            'id_donante' => $idDonante,
-            'cantidad' => $cantidad,
-            'fecha_venc' => $fechaVencimiento,
-            'create_at' => $now,
-            'update_at' => $now
+            ':nom_producto' => $nombre,
+            ':id_unidades' => $idUnidad,
+            ':id_categorias' => $idCategoria,
+            ':id_donante' => $idDonante,
+            ':tipo_origen' => $tipoOrigen,
+            ':estado' => $estado,
+            ':create_at' => $now
         ]);
         
         return (int) self::$db->lastInsertId();
+        
+    } catch (\PDOException $e) {
+        error_log("Error al crear producto en catálogo: " . $e->getMessage());
+        throw new \Exception("Error al crear producto: " . $e->getMessage());
+    }
+}
+
+/**
+ * Registra stock de un producto para un donante específico
+ */
+public function registrarStock(
+    int $idProductoCatalogo,
+    int $idDonante,
+    int $cantidad,
+    ?string $fechaVencimiento = null
+): int {
+    self::initDb();
+    
+    $now = (new \DateTimeImmutable('now'))->format('Y-m-d H:i:s');
+    
+    // PASO 1: Crear registro en tabla productos (intermedia)
+    $sqlProducto = "INSERT INTO productos (id_carga_producto, create_at, update_at, comentario) 
+                    VALUES (:id_carga_producto, :create_at, :update_at, :comentario)";
+    
+    $stmtProducto = self::$db->prepare($sqlProducto);
+    $stmtProducto->execute([
+        ':id_carga_producto' => $idProductoCatalogo,
+        ':create_at' => $now,
+        ':update_at' => $now,
+        ':comentario' => ''  // ✅ Cambiado de NULL a cadena vacía
+    ]);
+    
+    $idProducto = (int) self::$db->lastInsertId();
+    
+    // PASO 2: Crear registro en stock_productos
+    $sqlStock = "INSERT INTO stock_productos 
+                (id_donante, cantidad, id_producto, fecha_venc, create_at, update_at) 
+                VALUES (:id_donante, :cantidad, :id_producto, :fecha_venc, :create_at, :update_at)";
+    
+    $stmtStock = self::$db->prepare($sqlStock);
+    $stmtStock->execute([
+        ':id_donante' => $idDonante,
+        ':cantidad' => $cantidad,
+        ':id_producto' => $idProducto,
+        ':fecha_venc' => $fechaVencimiento,
+        ':create_at' => $now,
+        ':update_at' => $now
+    ]);
+    
+    return (int) self::$db->lastInsertId();
+}
+ /**
+ * Obtiene el stock de productos de un donante específico
+ */
+public function obtenerStockDonante(int $idDonante): array
+{
+    self::initDb();
+    
+    $sql = "SELECT 
+                sp.id_stock,
+                sp.cantidad,
+                sp.fecha_venc as fecha_vencimiento,
+                cp.nom_producto,
+                cp.id_carga_producto,
+                u.nombre_unidad,
+                u.abreviatura,
+                c.nombre as categoria
+            FROM stock_productos sp
+            INNER JOIN productos p ON sp.id_producto = p.id_productos
+            INNER JOIN cargar_productos cp ON p.id_carga_producto = cp.id_carga_producto
+            LEFT JOIN unidades u ON cp.id_unidades = u.id_unidad
+            LEFT JOIN categorias c ON cp.id_categorias = c.id_categoria
+            WHERE sp.id_donante = :id_donante
+            AND sp.cantidad > 0
+            ORDER BY sp.fecha_venc ASC";
+    
+    $stmt = self::$db->prepare($sql);
+    $stmt->execute([':id_donante' => $idDonante]);
+    
+    $resultados = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    
+    $productos = [];
+    foreach ($resultados as $row) {
+        $productos[] = [
+            'id_stock' => (int)$row['id_stock'],
+            'id_producto' => (int)$row['id_carga_producto'],
+            'nom_producto' => $row['nom_producto'] ?? 'Producto sin nombre',
+            'cantidad' => (int)$row['cantidad'],
+            'fecha_vencimiento' => $row['fecha_vencimiento'],
+            'unidad' => $row['abreviatura'] ?? $row['nombre_unidad'] ?? '',
+            'categoria' => $row['categoria'] ?? 'Sin categoría',
+            'comentarios' => '',
+        ];
+    }
+    
+    return $productos;
+}
+
+    /**
+     * Obtiene todos los productos del catálogo
+     */
+    public function obtenerCatalogo(int $limit = 100, int $offset = 0): array
+    {
+        self::initDb();
+        
+        $sql = "SELECT 
+                    cp.id_carga_producto,
+                    cp.nom_producto,
+                    cp.estado,
+                    cp.create_at,
+                    u.nombre_unidad,
+                    u.abreviatura,
+                    c.nombre as categoria
+                FROM cargar_productos cp
+                LEFT JOIN unidades u ON cp.id_unidades = u.id_unidad
+                LEFT JOIN categorias c ON cp.id_categorias = c.id_categoria
+                ORDER BY cp.create_at DESC
+                LIMIT :limit OFFSET :offset";
+        
+        $stmt = self::$db->prepare($sql);
+        $stmt->bindValue(':limit', $limit, \PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, \PDO::PARAM_INT);
+        $stmt->execute();
+        
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
+    public function encontrarPorId($id): ?array
+    {
+        self::initDb();
+        
+        $sql = "SELECT 
+                    cp.*,
+                    u.nombre_unidad,
+                    u.abreviatura,
+                    c.nombre as categoria
+                FROM cargar_productos cp
+                LEFT JOIN unidades u ON cp.id_unidades = u.id_unidad
+                LEFT JOIN categorias c ON cp.id_categorias = c.id_categoria
+                WHERE cp.id_carga_producto = :id";
+        
+        $stmt = self::$db->prepare($sql);
+        $stmt->execute([':id' => $id]);
+        
+        $result = $stmt->fetch(\PDO::FETCH_ASSOC);
+        return $result ?: null;
+    }
+
+    public function eliminarPorId($id): bool
+    {
+        self::initDb();
+        
+        $sql = "DELETE FROM stock_productos WHERE id_stock = :id";
+        $stmt = self::$db->prepare($sql);
+        
+        return $stmt->execute([':id' => $id]);
+    }
+
+    public function actualizarStock(
+        int $idStock,
+        int $cantidad,
+        ?string $fechaVencimiento = null
+    ): bool {
+        self::initDb();
+        
+        $now = (new \DateTimeImmutable('now'))->format('Y-m-d H:i:s');
+        
+        $sql = "UPDATE stock_productos 
+                SET cantidad = :cantidad, 
+                    fecha_venc = :fecha_venc,
+                    update_at = :update_at
+                WHERE id_stock = :id_stock";
+        
+        $stmt = self::$db->prepare($sql);
+        
+        return $stmt->execute([
+            ':cantidad' => $cantidad,
+            ':fecha_venc' => $fechaVencimiento,
+            ':update_at' => $now,
+            ':id_stock' => $idStock
+        ]);
     }
 }

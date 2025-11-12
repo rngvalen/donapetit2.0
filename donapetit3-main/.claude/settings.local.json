@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php -r \"copy(''https://getcomposer.org/installer'', ''composer-setup.php'');\")",
+      "Bash(\"c:\\xampp\\php\\php.exe\" -v)",
+      "Bash(\"c:\\xampp\\php\\php.exe\" composer.phar install)",
+      "Bash(cmd /c \"tasklist | findstr httpd\")",
+      "Bash(\"c:\\xampp\\php\\php.exe\" -r \"copy(''https://getcomposer.org/installer'', ''composer-setup.php'');\")",
+      "Bash(\"c:\\xampp\\php\\php.exe\" composer-setup.php)",
+      "Bash(\"c:\\xampp\\php\\php.exe\" -r \"unlink(''composer-setup.php'');\")",
+      "Bash(npm install:*)",
+      "Bash(dir vendor node_modules)",
+      "Bash(mysql:*)",
+      "Bash(\"c:\\xampp\\mysql\\bin\\mysql.exe\" -u root -e \"DESCRIBE donappetit.solicitud\")",
+      "Bash(\"c:\\xampp\\mysql\\bin\\mysql.exe\" -u root -e \"DESCRIBE donappetit.productos_donante\")",
+      "Bash(\"c:\\xampp\\php\\php.exe\" c:xampphtdocsdonapetit2.0donapetit3-maincronliberar_stock_expirado.php)",
+      "Bash(\"c:\\xampp\\php\\php.exe\":*)",
+      "Bash(\"c:\\xampp\\mysql\\bin\\mysql.exe\" -u root -e \"SELECT id_producto_donante, cantidad_disponible, cantidad_reservada, (cantidad_disponible - cantidad_reservada) as stock_real FROM donappetit.productos_donante WHERE estado = ''Activo'' LIMIT 5\")",
+      "Bash(\"c:\\xampp\\mysql\\bin\\mysql.exe\" -u root -e \"DESCRIBE donappetit.detalle\")",
+      "Bash(\"c:\\xampp\\mysql\\bin\\mysql.exe\":*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

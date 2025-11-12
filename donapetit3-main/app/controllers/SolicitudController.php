@@ -2,217 +2,275 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../model/Solicitud.php';
-require_once __DIR__ . '/../model/Producto.php';
+require_once __DIR__ . '/../model/ProductoDonante.php';
 require_once __DIR__ . '/controller.php';
 
-/**
- * Controlador responsable de gestionar las solicitudes de productos.
- */
 class SolicitudController extends Controller
 {
     private Solicitud $solicitudModel;
-    private Producto $productoModel;
+    private ProductoDonante $productoDonante;
 
     public function __construct()
     {
         $this->solicitudModel = new Solicitud();
-        $this->productoModel = new Producto();
+        $this->productoDonante = new ProductoDonante();
     }
 
-    /** 
-     * Muestra los productos disponibles para solicitar (vista del receptor)
+    /**
+     * Muestra el formulario para crear una solicitud
      */
-    public function productosDisponibles(): void
+    public function crear(): void
     {
-        // Verificar que sea un receptor
-        if (!isset($_SESSION['user'])) {
-            $_SESSION['error'] = 'Debes iniciar sesión para solicitar productos.';
-            $this->redirect('?controller=Auth&action=mostrarLogin');
-            return;
-        }
-
-        $userRole = $_SESSION['user']['rol'] ?? '';
-        if ($userRole !== 'receptor') {
-            $_SESSION['error'] = 'Solo los receptores pueden solicitar productos.';
+        if (!isset($_SESSION['user']) || $_SESSION['user']['rol'] !== 'receptor') {
+            $_SESSION['error'] = 'Solo los receptores pueden crear solicitudes.';
             $this->redirect('?controller=Home&action=index');
             return;
         }
 
-        // Obtener productos disponibles
-        $productos = $this->solicitudModel->obtenerProductosDisponibles(200, 0);
-
-        // Formatear para la vista
-        $ofertas = [];
-        foreach ($productos as $producto) {
-            $ofertas[] = [
-                'id_stock' => $producto['id_stock'],
-                'nombre' => $producto['nombre_producto'] ?? 'Producto sin nombre',
-                'origen' => $producto['nombre_donante'] ?? 'Origen desconocido',
-                'cantidad_disponible' => $producto['cantidad_disponible'],
-                'unidad' => $producto['unidad'] ?? '',
-                'fecha_venc' => $producto['fecha_venc'] ?? null,
-                'distancia' => $this->calcularDistancia(
-                    $producto['Latitud'] ?? null,
-                    $producto['Longitud'] ?? null
-                ),
-            ];
+        $idDonante = (int)($_GET['id_donante'] ?? 0);
+        
+        if ($idDonante <= 0) {
+            $_SESSION['error'] = 'Donante no especificado.';
+            $this->redirect('?controller=Producto&action=productosDisponibles');
+            return;
         }
 
-        $this->render('products.available_products', [
-            'ofertas' => $ofertas,
-            'titulo' => 'Productos disponibles',
+        // Obtener productos disponibles del donante
+        $productos = $this->productoDonante->obtenerInventarioDonante($idDonante);
+
+        // Obtener nombre del donante
+        $nombreDonante = 'Donante';
+        try {
+            ProductoDonante::initDb();
+            $sql = "SELECT d.nom_comercial, u.Nombre 
+                    FROM donante d
+                    INNER JOIN usuarios u ON d.id_usu_donante = u.id_usuario
+                    WHERE d.id_usu_donante = :id";
+            $stmt = ProductoDonante::getDb()->prepare($sql);
+            $stmt->execute([':id' => $idDonante]);
+            $donante = $stmt->fetch(\PDO::FETCH_ASSOC);
+            if ($donante) {
+                $nombreDonante = $donante['nom_comercial'] ?: $donante['Nombre'];
+            }
+        } catch (\Throwable $e) {
+            error_log("Error al obtener nombre del donante: " . $e->getMessage());
+        }
+
+        $this->render('solicitudes.crear', [
+            'productos' => $productos,
+            'id_donante' => $idDonante,
+            'nombre_donante' => $nombreDonante
         ]);
     }
 
     /**
-     * Procesa la solicitud de un producto
+     * Guarda una nueva solicitud
      */
-    public function solicitar(): void
+    public function store(): void
     {
-        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
-            $this->redirect('?controller=Solicitud&action=productosDisponibles');
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('?controller=Producto&action=productosDisponibles');
             return;
         }
 
-        // Verificar sesión
-        if (!isset($_SESSION['user'])) {
-            $_SESSION['error'] = 'Debes iniciar sesión para solicitar productos.';
-            $this->redirect('?controller=Auth&action=mostrarLogin');
-            return;
-        }
-
-        $userRole = $_SESSION['user']['rol'] ?? '';
-        if ($userRole !== 'receptor') {
-            $_SESSION['error'] = 'Solo los receptores pueden solicitar productos.';
+        if (!isset($_SESSION['user']) || $_SESSION['user']['rol'] !== 'receptor') {
+            $_SESSION['error'] = 'Solo los receptores pueden crear solicitudes.';
             $this->redirect('?controller=Home&action=index');
             return;
         }
 
         $idReceptor = (int)$_SESSION['user']['id'];
-        $idStock = isset($_POST['id_stock']) ? (int)$_POST['id_stock'] : 0;
-        $cantidad = isset($_POST['cantidad']) ? (int)$_POST['cantidad'] : 0;
-        $fechaProgramada = trim($_POST['fecha_programada'] ?? '');
+        $idDonante = (int)($_POST['id_donante'] ?? 0);
+        $productos = $_POST['productos'] ?? [];
+        $comentarios = trim($_POST['comentarios'] ?? '');
 
-        // Validaciones
         $errores = [];
 
-        if ($idStock <= 0) {
-            $errores[] = 'Producto no válido.';
+        if ($idDonante <= 0) {
+            $errores[] = 'Donante no válido.';
         }
 
-        if ($cantidad <= 0) {
-            $errores[] = 'La cantidad debe ser mayor a cero.';
-        }
-
-        if ($fechaProgramada === '') {
-            $fechaProgramada = null;
-        } else {
-            $fecha = \DateTime::createFromFormat('Y-m-d', $fechaProgramada);
-            if (!$fecha || $fecha->format('Y-m-d') !== $fechaProgramada) {
-                $errores[] = 'La fecha programada no es válida.';
+        // Verificar que hay al menos un producto con cantidad > 0
+        $hayProductos = false;
+        foreach ($productos as $cantidad) {
+            if ((int)$cantidad > 0) {
+                $hayProductos = true;
+                break;
             }
+        }
+
+        if (!$hayProductos) {
+            $errores[] = 'Debes seleccionar al menos un producto con cantidad mayor a 0.';
         }
 
         if (!empty($errores)) {
             $_SESSION['error'] = implode(' ', $errores);
-            $this->redirect('?controller=Solicitud&action=productosDisponibles');
+            $this->redirect('?controller=Solicitud&action=crear&id_donante=' . $idDonante);
             return;
         }
 
         try {
-            // Crear la solicitud
-            $idSolicitud = $this->solicitudModel->crearSolicitud($idReceptor);
-            
-            // Agregar el detalle
-            $this->solicitudModel->agregarDetalle(
-                $idSolicitud,
-                $idStock,
-                $cantidad,
-                $fechaProgramada
+            // Crear solicitud
+            $idSolicitud = $this->solicitudModel->crearSolicitud(
+                $idReceptor,
+                $idDonante,
+                $comentarios !== '' ? $comentarios : null
             );
 
-            $_SESSION['success'] = 'Solicitud enviada exitosamente. El donante la revisará pronto.';
-        } catch (\Exception $e) {
-            error_log("Error al crear solicitud: " . $e->getMessage());
-            $_SESSION['error'] = 'No se pudo procesar la solicitud. Intenta más tarde.';
-        }
+            // Agregar productos a la solicitud
+            foreach ($productos as $idProductoDonante => $cantidad) {
+                $cantidad = (int)$cantidad;
+                if ($cantidad > 0) {
+                    $this->solicitudModel->agregarProducto(
+                        $idSolicitud,
+                        (int)$idProductoDonante,
+                        $cantidad
+                    );
+                }
+            }
 
-        $this->redirect('?controller=Solicitud&action=productosDisponibles');
+            $_SESSION['success'] = 'Solicitud enviada exitosamente al donante.';
+            $this->redirect('?controller=Solicitud&action=missolicitudes');
+
+        } catch (\Throwable $e) {
+            error_log("Error al crear solicitud: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al crear la solicitud: ' . $e->getMessage();
+            $this->redirect('?controller=Solicitud&action=crear&id_donante=' . $idDonante);
+        }
     }
 
     /**
-     * Muestra las solicitudes pendientes del donante
+     * Lista las solicitudes del receptor
      */
-    public function misSolicitudes(): void
+    public function missolicitudes(): void
     {
-        // Verificar que sea un donante
-        if (!isset($_SESSION['user'])) {
-            $_SESSION['error'] = 'Debes iniciar sesión.';
-            $this->redirect('?controller=Auth&action=mostrarLogin');
-            return;
-        }
-
-        $userRole = $_SESSION['user']['rol'] ?? '';
-        if ($userRole !== 'donante') {
-            $_SESSION['error'] = 'Solo los donantes pueden ver solicitudes.';
+        if (!isset($_SESSION['user']) || $_SESSION['user']['rol'] !== 'receptor') {
+            $_SESSION['error'] = 'Solo los receptores pueden ver sus solicitudes.';
             $this->redirect('?controller=Home&action=index');
             return;
         }
 
-        $idDonante = (int)$_SESSION['user']['id'];
+        $idReceptor = (int)$_SESSION['user']['id'];
+        $solicitudes = $this->solicitudModel->obtenerSolicitudesReceptor($idReceptor);
 
-        // Obtener solicitudes pendientes
-        $solicitudes = $this->solicitudModel->solicitudesPendientesPorDonante($idDonante);
+        // Marcar que el usuario vio sus solicitudes (timestamp)
+        $_SESSION['last_viewed_solicitudes_' . $idReceptor] = time();
 
-        $this->render('products.solicitudes_pendientes', [
+        $this->render('solicitudes.mis_solicitudes', [
             'solicitudes' => $solicitudes,
-            'titulo' => 'Solicitudes pendientes',
+            'titulo' => 'Mis solicitudes'
         ]);
     }
 
     /**
-     * Confirma una solicitud y resta el stock
+     * Lista las solicitudes recibidas por el donante
      */
-    public function confirmar(): void
+    public function solicitudesrecibidas(): void
     {
-        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
-            $this->redirect('?controller=Producto&action=misProductos');
+        if (!isset($_SESSION['user']) || $_SESSION['user']['rol'] !== 'donante') {
+            $_SESSION['error'] = 'Solo los donantes pueden ver solicitudes recibidas.';
+            $this->redirect('?controller=Home&action=index');
             return;
         }
 
-        // Verificar que sea un donante
+        $idDonante = (int)$_SESSION['user']['id'];
+        $solicitudes = $this->solicitudModel->obtenerSolicitudesDonante($idDonante);
+
+        // Marcar que el donante vio sus solicitudes recibidas (timestamp)
+        $_SESSION['last_viewed_solicitudes_' . $idDonante] = time();
+
+        $this->render('solicitudes.recibidas', [
+            'solicitudes' => $solicitudes,
+            'titulo' => 'Solicitudes recibidas'
+        ]);
+    }
+
+    /**
+     * Muestra el detalle de una solicitud
+     */
+    public function ver(): void
+    {
         if (!isset($_SESSION['user'])) {
             $_SESSION['error'] = 'Debes iniciar sesión.';
             $this->redirect('?controller=Auth&action=mostrarLogin');
             return;
         }
 
-        $userRole = $_SESSION['user']['rol'] ?? '';
-        if ($userRole !== 'donante') {
-            $_SESSION['error'] = 'Solo los donantes pueden confirmar solicitudes.';
+        $idSolicitud = (int)($_GET['id'] ?? 0);
+        
+        if ($idSolicitud <= 0) {
+            $_SESSION['error'] = 'Solicitud no encontrada.';
             $this->redirect('?controller=Home&action=index');
             return;
         }
 
-        $idDonante = (int)$_SESSION['user']['id'];
-        $idSolicitudDetalle = isset($_POST['id_solicitud_detalle']) ? (int)$_POST['id_solicitud_detalle'] : 0;
+        $solicitud = $this->solicitudModel->obtenerDetalleSolicitud($idSolicitud);
 
-        if ($idSolicitudDetalle <= 0) {
-            $_SESSION['error'] = 'Solicitud no válida.';
-            $this->redirect('?controller=Producto&action=misProductos');
+        if (!$solicitud) {
+            $_SESSION['error'] = 'Solicitud no encontrada.';
+            $this->redirect('?controller=Home&action=index');
             return;
         }
 
-        // Confirmar y restar stock
-        $resultado = $this->solicitudModel->confirmarSolicitud($idSolicitudDetalle, $idDonante);
+        $this->render('solicitudes.detalle', [
+            'solicitud' => $solicitud
+        ]);
+    }
 
-        if ($resultado) {
-            $_SESSION['success'] = '¡Solicitud confirmada! El stock se ha actualizado correctamente.';
-        } else {
-            $_SESSION['error'] = 'No se pudo confirmar la solicitud. Verifica que haya stock suficiente.';
+    /**
+     * Aprueba una solicitud y RESERVA el stock (no lo descuenta todavia)
+     */
+    public function aprobar(): void
+    {
+        if (!isset($_SESSION['user']) || $_SESSION['user']['rol'] !== 'donante') {
+            $_SESSION['error'] = 'Solo los donantes pueden aprobar solicitudes.';
+            $this->redirect('?controller=Home&action=index');
+            return;
         }
 
-        $this->redirect('?controller=Solicitud&action=misSolicitudes');
+        $idSolicitud = (int)($_GET['id'] ?? 0);
+
+        if ($idSolicitud <= 0) {
+            $_SESSION['error'] = 'Solicitud no válida.';
+            $this->redirect('?controller=Solicitud&action=solicitudesrecibidas');
+            return;
+        }
+
+        if ($this->solicitudModel->aprobarYReservar($idSolicitud)) {
+            $_SESSION['success'] = 'Solicitud aprobada y stock reservado. El receptor tiene 2 horas para retirar.';
+        } else {
+            $_SESSION['error'] = 'Error al aprobar la solicitud. Verifica que haya stock disponible.';
+        }
+
+        $this->redirect('?controller=Solicitud&action=solicitudesrecibidas');
+    }
+
+    /**
+     * Confirma que el receptor retiró los productos y descuenta el stock
+     */
+    public function confirmarRetiro(): void
+    {
+        if (!isset($_SESSION['user']) || $_SESSION['user']['rol'] !== 'donante') {
+            $_SESSION['error'] = 'Solo los donantes pueden confirmar retiros.';
+            $this->redirect('?controller=Home&action=index');
+            return;
+        }
+
+        $idSolicitud = (int)($_GET['id'] ?? 0);
+
+        if ($idSolicitud <= 0) {
+            $_SESSION['error'] = 'Solicitud no válida.';
+            $this->redirect('?controller=Solicitud&action=solicitudesrecibidas');
+            return;
+        }
+
+        if ($this->solicitudModel->confirmarRetiro($idSolicitud)) {
+            $_SESSION['success'] = 'Retiro confirmado. El stock se descontó correctamente.';
+        } else {
+            $_SESSION['error'] = 'Error al confirmar el retiro.';
+        }
+
+        $this->redirect('?controller=Solicitud&action=solicitudesrecibidas');
     }
 
     /**
@@ -220,55 +278,26 @@ class SolicitudController extends Controller
      */
     public function rechazar(): void
     {
-        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
-            $this->redirect('?controller=Producto&action=misProductos');
-            return;
-        }
-
-        // Verificar que sea un donante
-        if (!isset($_SESSION['user'])) {
-            $_SESSION['error'] = 'Debes iniciar sesión.';
-            $this->redirect('?controller=Auth&action=mostrarLogin');
-            return;
-        }
-
-        $userRole = $_SESSION['user']['rol'] ?? '';
-        if ($userRole !== 'donante') {
+        if (!isset($_SESSION['user']) || $_SESSION['user']['rol'] !== 'donante') {
             $_SESSION['error'] = 'Solo los donantes pueden rechazar solicitudes.';
             $this->redirect('?controller=Home&action=index');
             return;
         }
 
-        $idDonante = (int)$_SESSION['user']['id'];
-        $idSolicitudDetalle = isset($_POST['id_solicitud_detalle']) ? (int)$_POST['id_solicitud_detalle'] : 0;
+        $idSolicitud = (int)($_GET['id'] ?? 0);
 
-        if ($idSolicitudDetalle <= 0) {
+        if ($idSolicitud <= 0) {
             $_SESSION['error'] = 'Solicitud no válida.';
-            $this->redirect('?controller=Producto&action=misProductos');
+            $this->redirect('?controller=Solicitud&action=solicitudesrecibidas');
             return;
         }
 
-        // Rechazar solicitud
-        $resultado = $this->solicitudModel->rechazarSolicitud($idSolicitudDetalle, $idDonante);
-
-        if ($resultado) {
+        if ($this->solicitudModel->cambiarEstado($idSolicitud, 'Rechazada')) {
             $_SESSION['success'] = 'Solicitud rechazada.';
         } else {
-            $_SESSION['error'] = 'No se pudo rechazar la solicitud.';
+            $_SESSION['error'] = 'Error al rechazar la solicitud.';
         }
 
-        $this->redirect('?controller=Solicitud&action=misSolicitudes');
-    }
-
-    /**
-     * Calcula la distancia aproximada basada en coordenadas
-     * Por ahora retorna una distancia ficticia, pero puedes implementar
-     * la fórmula de Haversine si tienes las coordenadas del receptor
-     */
-    private function calcularDistancia(?float $lat, ?float $lon): string
-    {
-        // TODO: Implementar cálculo real de distancia usando coordenadas del usuario
-        $distancia = rand(5, 50) / 10; // 0.5 a 5.0 km
-        return number_format($distancia, 1, '.', '') . ' km';
+        $this->redirect('?controller=Solicitud&action=solicitudesrecibidas');
     }
 }

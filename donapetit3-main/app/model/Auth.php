@@ -48,7 +48,7 @@ class Auth {
 
             $this->lastError = 'No se pudo registrar el usuario.';
             return false;
-        } catch (PDOException $e) {
+        } catch (\PDOException $e) {
             $this->lastError = 'Error al registrar: ' . $e->getMessage();
             return false;
         }
@@ -59,7 +59,7 @@ class Auth {
         $stmt = $this->conn->prepare("SELECT * FROM usuarios WHERE Email = :email");
         $stmt->bindParam(':email', $email);
         $stmt->execute();
-        return $stmt->fetch(PDO::FETCH_ASSOC);
+        return $stmt->fetch(\PDO::FETCH_ASSOC);
     }
 
     // Verificar credenciales de inicio de sesion
@@ -79,7 +79,7 @@ class Auth {
             }
 
             return $usuario;
-        } catch (PDOException $e) {
+        } catch (\PDOException $e) {
             $this->lastError = 'Error en login: ' . $e->getMessage();
             return false;
         }
@@ -103,12 +103,12 @@ class Auth {
             $expiracion = date('Y-m-d H:i:s', strtotime('+15 minutes'));
             
             // Desactivar códigos anteriores del usuario
-            $delete = $this->conn->prepare("UPDATE codigo_verificacion SET activo = '0' WHERE id_usuario = :id_usuario");
+            $delete = $this->conn->prepare("UPDATE verificar_contrasena SET activo = '0' WHERE id_usuario = :id_usuario");
             $delete->bindParam(':id_usuario', $usuario['id_usuario']);
             $delete->execute();
-            
+
             // Insertar nuevo código
-            $sql = "INSERT INTO codigo_verificacion (id_usuario, codigo, fecha_expiracion, activo) 
+            $sql = "INSERT INTO verificar_contrasena (id_usuario, codigo, fecha_expiracion, activo)
                     VALUES (:id_usuario, :codigo, :expiracion, '1')";
             $stmt = $this->conn->prepare($sql);
             $stmt->bindParam(':id_usuario', $usuario['id_usuario']);
@@ -125,7 +125,7 @@ class Auth {
             
             $this->lastError = 'No se pudo generar el código.';
             return false;
-        } catch (PDOException $e) {
+        } catch (\PDOException $e) {
             $this->lastError = 'Error al generar código: ' . $e->getMessage();
             return false;
         }
@@ -142,10 +142,10 @@ class Auth {
                 return false;
             }
             
-            $sql = "SELECT * FROM codigo_verificacion 
-                    WHERE id_usuario = :id_usuario 
-                    AND codigo = :codigo 
-                    AND activo = '1' 
+            $sql = "SELECT * FROM verificar_contrasena
+                    WHERE id_usuario = :id_usuario
+                    AND codigo = :codigo
+                    AND activo = '1'
                     AND fecha_expiracion > NOW()";
             
             $stmt = $this->conn->prepare($sql);
@@ -153,15 +153,15 @@ class Auth {
             $stmt->bindParam(':codigo', $codigo);
             $stmt->execute();
             
-            $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
-            
+            $resultado = $stmt->fetch(\PDO::FETCH_ASSOC);
+
             if (!$resultado) {
                 $this->lastError = 'Código inválido o expirado.';
                 return false;
             }
-            
+
             return $resultado;
-        } catch (PDOException $e) {
+        } catch (\PDOException $e) {
             $this->lastError = 'Error al verificar código: ' . $e->getMessage();
             return false;
         }
@@ -196,16 +196,16 @@ class Auth {
             
             if ($stmt->execute()) {
                 // Marcar código como usado (desactivar)
-                $update = $this->conn->prepare("UPDATE codigo_verificacion SET activo = '0' WHERE id_cod = :id");
+                $update = $this->conn->prepare("UPDATE verificar_contrasena SET activo = '0' WHERE id_cod = :id");
                 $update->bindParam(':id', $codigoValido['id_cod']);
                 $update->execute();
-                
+
                 return true;
             }
             
             $this->lastError = 'No se pudo cambiar la contraseña.';
             return false;
-        } catch (PDOException $e) {
+        } catch (\PDOException $e) {
             $this->lastError = 'Error al cambiar contraseña: ' . $e->getMessage();
             return false;
         }

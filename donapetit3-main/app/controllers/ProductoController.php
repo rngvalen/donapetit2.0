@@ -1,167 +1,323 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/../model/Producto.php';
-require_once __DIR__ . '/../model/Unidad.php';
+require_once __DIR__ . '/../model/Catalogo.php';
+require_once __DIR__ . '/../model/ProductoDonante.php';
 require_once __DIR__ . '/../model/Categoria.php';
+require_once __DIR__ . '/../model/Unidad.php';
+require_once __DIR__ . '/../model/Producto.php';
 require_once __DIR__ . '/controller.php';
 
 /**
- * Controlador responsable de las operaciones CRUD sobre productos.
+ * Controlador responsable de las operaciones sobre productos del donante.
  */
 class ProductoController extends Controller
 {
-    /**
-     * Instancia del modelo Producto utilizada para las operaciones de escritura.
-     */
-    private Producto $productoModel;
+    private Catalogo $catalogoModel;
+    private ProductoDonante $productoDonante;
     private Categoria $categoriaModel;
+    private Producto $productoModel;
 
-    /**
-     * Prepara el controlador instanciando el modelo necesario.
-     */
     public function __construct()
     {
-        $this->productoModel = new Producto();
+        $this->catalogoModel = new Catalogo();
+        $this->productoDonante = new ProductoDonante();
         $this->categoriaModel = new Categoria();
+        $this->productoModel = new Producto();
     }
 
     /**
-     * Retorna mapa de categorias [id => nombre].
-     *
-     * @return array<int,string>
-     */
-    private function getCategoriasMap(): array
-    {
-        $categorias = $this->categoriaModel->todas();
-        $map = [];
-        foreach ($categorias as $categoria) {
-            $id = (int)($categoria['id'] ?? 0);
-            if ($id <= 0) {
-                continue;
-            }
-            $map[$id] = (string)($categoria['nombre'] ?? '');
-        }
-
-        return $map;
-    }
-
-    /**
-     * Muestra un listado paginado de productos cargados por el usuario.
-     *
-     * @return void
+     * Redirige a misProductos (para compatibilidad)
      */
     public function index(): void
     {
-        $page = max(1, (int)($_GET['page'] ?? 1));
-        $limit = 10;
-        $offset = ($page - 1) * $limit;
-
-        $productos = Producto::all($limit, $offset);
-        $this->render('products.index', compact('productos', 'page'));
+        $this->redirect('?controller=Producto&action=misProductos');
     }
 
     /**
-     * Presenta los productos del usuario en formato de tarjetas.
-     *
-     * @return void
+     * Muestra el inventario del donante (sus productos cargados)
      */
     public function misProductos(): void
     {
-        $productosFuente = Producto::all(200, 0);
-        $productos = array_map(
-            function (array $producto): array {
-                $id = null;
-                if (isset($producto['id_producto']) && (int)$producto['id_producto'] > 0) {
-                    $id = (int)$producto['id_producto'];
-                } elseif (isset($producto['id_productos']) && (int)$producto['id_productos'] > 0) {
-                    $id = (int)$producto['id_productos'];
-                }
+        if (!isset($_SESSION['user'])) {
+            $_SESSION['error'] = 'Debes iniciar sesión.';
+            $this->redirect('?controller=Auth&action=mostrarLogin');
+            return;
+        }
 
-                $nombre = trim((string)($producto['nom_producto'] ?? ''));
-                $cantidadRaw = $producto['cantidad'] ?? null;
-                $cantidad = null;
-                if ($cantidadRaw !== null && $cantidadRaw !== '') {
-                    $cantidad = is_numeric($cantidadRaw) ? (int)$cantidadRaw : null;
-                }
+        $userRole = $_SESSION['user']['rol'] ?? '';
+        $userId = (int)$_SESSION['user']['id'];
 
-                $venceRaw = $producto['fecha_vencimiento'] ?? null;
+        if ($userRole !== 'donante') {
+            $_SESSION['error'] = 'Solo los donantes pueden ver su inventario.';
+            $this->redirect('?controller=Home&action=index');
+            return;
+        }
 
-                $links = null;
-                if ($id !== null) {
-                    $idParam = urlencode((string)$id);
-                    $base = 'index.php?controller=Producto&action=';
-                    $links = [
-                        'show' => $base . 'show&id=' . $idParam,
-                        'edit' => $base . 'edit&id=' . $idParam,
-                        'destroy' => $base . 'destroy&id=' . $idParam,
-                    ];
-                }
-
-                return [
-                    'id' => $id,
-                    'nombre' => $nombre !== '' ? $nombre : 'Producto sin nombre',
-                    'cantidad' => $cantidad,
-                    'vence' => $this->formatExpirationLabel($venceRaw),
-                    'links' => $links,
-                ];
-            },
-            $productosFuente
-        );
+        $productos = $this->productoDonante->obtenerInventarioDonante($userId);
 
         $this->render('products.my_products', [
             'productos' => $productos,
-            'titulo' => 'Mis productos',
+            'titulo' => 'Mi inventario',
         ]);
     }
 
     /**
-     * Lista productos disponibles publicados por otros usuarios.
-     *
-     * @return void
+     * Muestra el formulario para cargar productos del catálogo
+     */
+    public function create(): void
+    {
+        if (!isset($_SESSION['user']) || $_SESSION['user']['rol'] !== 'donante') {
+            $_SESSION['error'] = 'Solo los donantes pueden cargar productos.';
+            $this->redirect('?controller=Home&action=index');
+            return;
+        }
+
+        $productos = $this->catalogoModel->obtenerProductosActivos();
+
+        $this->render('products.product_load', [
+            'productos' => $productos
+        ]);
+    }
+
+    /**
+     * Guarda un producto en el inventario del donante
+     */
+    public function store(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('?controller=Producto&action=create');
+            return;
+        }
+
+        if (!isset($_SESSION['user']) || $_SESSION['user']['rol'] !== 'donante') {
+            $_SESSION['error'] = 'Solo los donantes pueden cargar productos.';
+            $this->redirect('?controller=Home&action=index');
+            return;
+        }
+
+        $idUsuario = (int)$_SESSION['user']['id'];
+        $idCatalogo = (int)($_POST['id_catalogo'] ?? 0);
+        $cantidad = (int)($_POST['cantidad'] ?? 0);
+        $fechaVencimiento = trim($_POST['fecha_vencimiento'] ?? '');
+
+        $errores = [];
+
+        // Validar producto seleccionado
+        if ($idCatalogo <= 0) {
+            $errores[] = 'Debes seleccionar un producto del catálogo.';
+        }
+
+        // Validar cantidad
+        if ($cantidad <= 0) {
+            $errores[] = 'La cantidad debe ser mayor a 0.';
+        }
+
+        // Validar fecha de vencimiento (opcional)
+        if ($fechaVencimiento !== '') {
+            $fecha = \DateTime::createFromFormat('Y-m-d', $fechaVencimiento);
+            if (!$fecha || $fecha->format('Y-m-d') !== $fechaVencimiento) {
+                $errores[] = 'La fecha de vencimiento no es válida.';
+            } elseif ($fecha < new \DateTime('today')) {
+                $errores[] = 'La fecha de vencimiento debe ser futura.';
+            }
+        } else {
+            $fechaVencimiento = null;
+        }
+
+        if (!empty($errores)) {
+            $_SESSION['error'] = implode(' ', $errores);
+            $this->redirect('?controller=Producto&action=create');
+            return;
+        }
+
+        try {
+            $this->productoDonante->registrarProducto(
+                $idUsuario,
+                $idCatalogo,
+                $cantidad,
+                $fechaVencimiento
+            );
+            
+            $_SESSION['success'] = 'Producto agregado exitosamente a tu inventario.';
+            $this->redirect('?controller=Producto&action=misProductos');
+            
+        } catch (\Throwable $e) {
+            error_log("Error al registrar producto: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al guardar el producto: ' . $e->getMessage();
+            $this->redirect('?controller=Producto&action=create');
+        }
+    }
+
+    /**
+     * Elimina un producto del inventario del donante
+     */
+    public function destroy(): void
+    {
+        $id = (int)($_GET['id'] ?? 0);
+        
+        if ($id > 0 && $this->productoDonante->eliminarProducto($id)) {
+            $_SESSION['success'] = 'Producto eliminado de tu inventario.';
+        } else {
+            $_SESSION['error'] = 'No se pudo eliminar el producto.';
+        }
+
+        $this->redirect('?controller=Producto&action=misProductos');
+    }
+
+    /**
+     * Muestra el formulario de edición de un producto del inventario
+     */
+    public function edit(): void
+    {
+        $id = (int)($_GET['id'] ?? 0);
+        
+        if ($id <= 0) {
+            $_SESSION['error'] = 'Producto no encontrado.';
+            $this->redirect('?controller=Producto&action=misProductos');
+            return;
+        }
+
+        // Obtener el producto del inventario
+        if (!isset($_SESSION['user'])) {
+            $_SESSION['error'] = 'Debes iniciar sesión.';
+            $this->redirect('?controller=Auth&action=mostrarLogin');
+            return;
+        }
+
+        $idUsuario = (int)$_SESSION['user']['id'];
+        $productos = $this->productoDonante->obtenerInventarioDonante($idUsuario);
+        
+        $producto = null;
+        foreach ($productos as $p) {
+            if ((int)$p['id_producto_donante'] === $id) {
+                $producto = $p;
+                break;
+            }
+        }
+
+        if (!$producto) {
+            $_SESSION['error'] = 'Producto no encontrado.';
+            $this->redirect('?controller=Producto&action=misProductos');
+            return;
+        }
+
+        $this->render('products.edit', [
+            'producto' => $producto
+        ]);
+    }
+
+    /**
+     * Actualiza la cantidad de un producto en el inventario
+     */
+    public function update(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('?controller=Producto&action=misProductos');
+            return;
+        }
+
+        $id = (int)($_POST['id'] ?? 0);
+        $cantidad = (int)($_POST['cantidad'] ?? 0);
+
+        $errores = [];
+
+        if ($id <= 0) {
+            $errores[] = 'Producto no válido.';
+        }
+
+        if ($cantidad <= 0) {
+            $errores[] = 'La cantidad debe ser mayor a 0.';
+        }
+
+        if (!empty($errores)) {
+            $_SESSION['error'] = implode(' ', $errores);
+            $this->redirect('?controller=Producto&action=edit&id=' . $id);
+            return;
+        }
+
+        try {
+            $this->productoDonante->actualizarCantidad($id, $cantidad);
+            $_SESSION['success'] = 'Producto actualizado correctamente.';
+        } catch (\Throwable $e) {
+            error_log("Error al actualizar producto: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al actualizar el producto.';
+        }
+
+        $this->redirect('?controller=Producto&action=misProductos');
+    }
+
+    /**
+     * Muestra productos disponibles para receptores
      */
     public function productosDisponibles(): void
     {
-        $productosFuente = Producto::all(200, 0);
-
-        $ofertas = [];
-        foreach ($productosFuente as $index => $producto) {
-            $nombre = trim((string)($producto['nom_producto'] ?? ''));
-            $categoria = trim((string)($producto['categoria'] ?? ''));
-
-            $ofertas[] = [
-                'nombre' => $nombre !== '' ? $nombre : 'Producto sin nombre',
-                'origen' => $categoria !== '' ? $categoria : 'Origen sin especificar',
-                'distancia' => $this->generateDistanceLabel($index),
-            ];
+        if (!isset($_SESSION['user'])) {
+            $_SESSION['error'] = 'Debes iniciar sesión.';
+            $this->redirect('?controller=Auth&action=mostrarLogin');
+            return;
         }
 
+        $userRole = $_SESSION['user']['rol'] ?? '';
+        
+        if ($userRole !== 'receptor') {
+            $_SESSION['error'] = 'Solo los receptores pueden ver productos disponibles.';
+            $this->redirect('?controller=Home&action=index');
+            return;
+        }
+
+        // Obtener productos disponibles usando el modelo
+        $productos = $this->productoDonante->obtenerTodosDisponibles();
+
         $this->render('products.available_products', [
-            'ofertas' => $ofertas,
-            'titulo' => 'Productos disponibles',
+            'productos' => $productos,
+            'titulo' => 'Productos disponibles para solicitar'
         ]);
     }
 
     /**
+     * Catálogo administrativo - solo para admin
      * Renderiza el catalogo administrativo con filtros y ordenamientos.
-     *
-     * @return void
      */
     public function catalogo(): void
     {
+        if (!isset($_SESSION['user']) || $_SESSION['user']['rol'] !== 'admin') {
+            $_SESSION['error'] = 'Acceso no autorizado.';
+            $this->redirect('?controller=Home&action=index');
+            return;
+        }
+
         $filters = [
             'search' => isset($_GET['search']) ? trim((string)$_GET['search']) : '',
             'estado' => isset($_GET['estado']) ? trim((string)$_GET['estado']) : '',
             'order' => isset($_GET['order']) && $_GET['order'] !== '' ? (string)$_GET['order'] : 'recent',
         ];
 
-        $estadoOpciones = ['Disponible', 'Agotado', 'En revision'];
+        $estadoOpciones = ['Activo', 'Inactivo'];
 
-        $productos = Producto::all(500, 0);
+        // Usar el modelo Catalogo para obtener productos del catalogo
+        $catalogoModel = new Catalogo();
+        $productosRaw = $catalogoModel->activos();
+
+        // Transformar datos para que coincidan con lo que espera la vista
+        $productos = array_map(function($p) {
+            return [
+                'id_producto' => $p['id'],
+                'nom_producto' => $p['nombre'],
+                'categoria' => $p['categoria_nombre'] ?? '',
+                'unidad' => $p['unidad_abreviatura'] ?? '',
+                'cantidad' => null, // El catálogo no tiene cantidad, es solo la definición del producto
+                'fecha_vencimiento' => null,
+                'estado' => 'Activo',
+                'comentarios' => $p['descripcion'] ?? '',
+            ];
+        }, $productosRaw);
 
         $unidadModel = new Unidad();
         $unidades = $unidadModel->activas();
-        $nombresDisponibles = $this->productoModel->obtenerNombresDisponibles();
+
+        // Obtener nombres disponibles desde el catalogo
+        $nombresDisponibles = array_column($productosRaw, 'nombre');
         $categorias = $this->getCategoriasMap();
 
         $this->render(
@@ -171,320 +327,39 @@ class ProductoController extends Controller
     }
 
     /**
-     * Presenta el formulario para crear un nuevo producto.
-     *
-     * @return void
-     */
-    public function create(): void
-    {
-        $unidadModel = new Unidad();
-        $unidades = $unidadModel->activas();
-        $nombresDisponibles = $this->productoModel->obtenerNombresDisponibles();
-        $categorias = $this->getCategoriasMap();
-        $this->render('products.product_load', compact('unidades', 'nombresDisponibles', 'categorias'));
+ * Muestra el formulario para solicitar un producto (placeholder)
+ */
+public function solicitar(): void
+{
+    if (!isset($_SESSION['user'])) {
+        $_SESSION['error'] = 'Debes iniciar sesión.';
+        $this->redirect('?controller=Auth&action=mostrarLogin');
+        return;
     }
 
-    /**
-     * Procesa la solicitud de creacion de un nuevo producto.
-     *
-     * @return void
-     */
-    public function store(): void
-    {
-        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
-            $this->redirect('?controller=Producto&action=create');
-        }
-
-        // Verificar que el usuario esté logueado y sea donante
-        if (!isset($_SESSION['user'])) {
-            $_SESSION['error'] = 'Debes iniciar sesión para registrar productos.';
-            $this->redirect('?controller=Auth&action=mostrarLogin');
-            return;
-        }
-
-        $userRole = $_SESSION['user']['rol'] ?? '';
-        if ($userRole !== 'donante') {
-            $_SESSION['error'] = 'Solo los donantes pueden registrar productos.';
-            $this->redirect('?controller=Home&action=index');
-            return;
-        }
-
-        $idDonante = (int)$_SESSION['user']['id'];
-
-        $nombre = trim($_POST['nombre'] ?? '');
-        $unidad = trim($_POST['unidad'] ?? '');
-        $cantidad = $_POST['cantidad'] ?? null;
-        $fechaVencimiento = trim($_POST['vencimiento'] ?? '');
-        $comentarios = trim($_POST['comentarios'] ?? '');
-        $categoriaIdRaw = $_POST['categoria'] ?? '';
-
-        $errores = [];
-
-        // Validar nombre
-        if ($nombre === '') {
-            $errores[] = 'El nombre del producto es obligatorio.';
-        }
-        
-        // Verificar que el producto exista en el catálogo
-        $idProducto = null;
-        if ($nombre !== '') {
-            $idProducto = $this->productoModel->obtenerIdPorNombre($nombre);
-            if ($idProducto === null) {
-                $errores[] = 'El producto seleccionado no existe en el catálogo.';
-            }
-        }
-
-        // Validar unidad
-        if ($unidad === '') {
-            $errores[] = 'La unidad es obligatoria.';
-        }
-
-        // Validar cantidad
-        if ($cantidad === '' || $cantidad === null) {
-            $errores[] = 'La cantidad es obligatoria.';
-        } elseif (!ctype_digit((string)$cantidad) || (int)$cantidad <= 0) {
-            $errores[] = 'La cantidad debe ser un entero positivo.';
-        } else {
-            $cantidad = (int)$cantidad;
-        }
-
-        // Validar fecha de vencimiento
-        if ($fechaVencimiento === '') {
-            $errores[] = 'La fecha de vencimiento es obligatoria.';
-        } else {
-            $fecha = \DateTime::createFromFormat('Y-m-d', $fechaVencimiento);
-            if (!$fecha || $fecha->format('Y-m-d') !== $fechaVencimiento) {
-                $errores[] = 'La fecha de vencimiento no es válida.';
-            } else {
-                // Verificar que la fecha sea futura
-                $hoy = new \DateTime('today');
-                if ($fecha < $hoy) {
-                    $errores[] = 'La fecha de vencimiento debe ser futura.';
-                }
-            }
-        }
-
-        // Validar categoría
-        $categoriasMap = $this->getCategoriasMap();
-        $categoriaId = null;
-        if ($categoriaIdRaw === '' || $categoriaIdRaw === null) {
-            $errores[] = 'La categoría es obligatoria.';
-        } elseif (!ctype_digit((string)$categoriaIdRaw)) {
-            $errores[] = 'Categoría inválida.';
-        } else {
-            $categoriaId = (int)$categoriaIdRaw;
-            if (!isset($categoriasMap[$categoriaId])) {
-                $errores[] = 'La categoría seleccionada no existe.';
-            }
-        }
-
-        // Si hay errores, redirigir con mensaje
-        if (!empty($errores)) {
-            $_SESSION['error'] = implode(' ', $errores);
-            $this->redirect('?controller=Producto&action=create');
-            return;
-        }
-
-        // Guardar en stock_productos_donacion
-        try {
-            $idStock = $this->productoModel->registrarStock(
-                $idProducto,
-                $idDonante,
-                $cantidad,
-                $fechaVencimiento
-            );
-            
-            $_SESSION['success'] = 'Producto registrado exitosamente. Ya está disponible para donación.';
-        } catch (\Throwable $exception) {
-            error_log("Error al registrar stock: " . $exception->getMessage());
-            $_SESSION['error'] = 'No se pudo registrar el producto. Intenta más tarde.';
-        }
-
-        $this->redirect('?controller=Producto&action=misProductos');
+    $userRole = $_SESSION['user']['rol'] ?? '';
+    
+    if ($userRole !== 'receptor') {
+        $_SESSION['error'] = 'Solo los receptores pueden solicitar productos.';
+        $this->redirect('?controller=Home&action=index');
+        return;
     }
 
-    /**
-     * Muestra el detalle de un producto especifico.
-     *
-     * @return void
-     */
-    public function show(): void
-    {
-        $id = $_GET['id'] ?? null;
-        if (!$id) {
-            $this->redirect('index.php?controller=Producto&action=index');
-        }
-
-        $producto = $this->productoModel->encontrarPorId($id);
-        if (!$producto) {
-            $_SESSION['error'] = 'Producto no encontrado.';
-            $this->redirect('index.php?controller=Producto&action=index');
-        }
-
-        $this->render('products.show', compact('producto'));
-    }
-
-    /**
-     * Renderiza el formulario de edicion para un producto existente.
-     *
-     * @return void
-     */
-    public function edit(): void
-    {
-        $id = $_GET['id'] ?? null;
-        if (!$id) {
-            $this->redirect('index.php?controller=Producto&action=index');
-        }
-
-        $producto = $this->productoModel->encontrarPorId($id);
-        if (!$producto) {
-            $_SESSION['error'] = 'Producto no encontrado.';
-            $this->redirect('index.php?controller=Producto&action=index');
-        }
-        $unidadModel = new Unidad();
-        $unidades = $unidadModel->activas();
-        $nombresDisponibles = $this->productoModel->obtenerNombresDisponibles();
-        $categorias = $this->getCategoriasMap();
-        $this->render('products.edit', compact('producto', 'unidades', 'nombresDisponibles', 'categorias'));
-    }
-
-    /**
-     * Actualiza un producto existente con los datos enviados por el formulario.
-     *
-     * @return void
-     */
-    public function update(): void
-    {
-        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
-            $this->redirect('index.php?controller=Producto&action=index');
-        }
-
-        $id = $_POST['id'] ?? null;
-        $nombre = trim($_POST['nombre'] ?? '');
-        $unidad = trim($_POST['unidad'] ?? '');
-        $cantidad = $_POST['cantidad'] ?? null;
-        $fechaVencimiento = trim($_POST['vencimiento'] ?? '');
-        $comentarios = trim($_POST['comentarios'] ?? '');
-        $estado = isset($_POST['estado']) ? trim($_POST['estado']) : null;
-        $categoriaIdRaw = $_POST['categoria'] ?? '';
-
-        if (!$id) {
-            $_SESSION['error'] = 'Identificador de producto invalido.';
-            $this->redirect('index.php?controller=Producto&action=index');
-        }
-
-        $errores = [];
-
-        if ($nombre === '') {
-            $errores[] = 'El nombre del producto es obligatorio.';
-        }
-        if ($nombre !== '') {
-            $existentes = $this->productoModel->obtenerNombresDisponibles();
-            $toLower = static function (string $value): string {
-                return function_exists('mb_strtolower') ? mb_strtolower($value, 'UTF-8') : strtolower($value);
-            };
-            $lowerNombre = $toLower($nombre);
-            $estaCatalogo = false;
-            foreach ($existentes as $existente) {
-                if ($toLower($existente) === $lowerNombre) {
-                    $estaCatalogo = true;
-                    break;
-                }
-            }
-            if (!$estaCatalogo) {
-                $errores[] = 'El producto seleccionado no existe en el catalogo. Consulta con administracion.';
-            }
-        }
-        if ($unidad === '') {
-            $errores[] = 'La unidad es obligatoria.';
-        }
-
-        if ($cantidad === '' || $cantidad === null) {
-            $cantidad = null;
-        } else {
-            if (!ctype_digit((string)$cantidad) || (int)$cantidad <= 0) {
-                $errores[] = 'La cantidad debe ser un entero positivo.';
-            } else {
-                $cantidad = (int)$cantidad;
-            }
-        }
-
-        if ($fechaVencimiento === '') {
-            $fechaVencimiento = null;
-        } else {
-            $fecha = \DateTime::createFromFormat('Y-m-d', $fechaVencimiento);
-            if (!$fecha || $fecha->format('Y-m-d') !== $fechaVencimiento) {
-                $errores[] = 'La fecha de vencimiento no tiene un formato valido (AAAA-MM-DD).';
-            }
-        }
-
-        if ($comentarios === '') {
-            $comentarios = null;
-        }
-
-        if ($estado === '') {
-            $estado = null;
-        }
-
-        $categoriasMap = $this->getCategoriasMap();
-        $categoriaId = null;
-        $categoriaNombre = null;
-        if ($categoriaIdRaw === '' || $categoriaIdRaw === null) {
-            $errores[] = 'La categoria es obligatoria.';
-        } elseif (!ctype_digit((string)$categoriaIdRaw)) {
-            $errores[] = 'Categoria invalida.';
-        } else {
-            $categoriaId = (int)$categoriaIdRaw;
-            if (isset($categoriasMap[$categoriaId])) {
-                $categoriaNombre = $categoriasMap[$categoriaId];
-            } else {
-                $errores[] = 'La categoria seleccionada no existe.';
-            }
-        }
-
-        if (!empty($errores)) {
-            $_SESSION['error'] = implode(' ', $errores);
-            $this->redirect('index.php?controller=Producto&action=edit&id=' . urlencode((string)$id));
-        }
-
-        $ok = $this->productoModel->actualizarProducto(
-            $id,
-            $nombre,
-            $unidad,
-            $cantidad,
-            $fechaVencimiento,
-            $comentarios,
-            $estado,
-            $categoriaId,
-            $categoriaNombre
-        );
-
-        $_SESSION['success'] = $ok ? 'Producto actualizado.' : 'No se pudo actualizar.';
-        $this->redirect('index.php?controller=Producto&action=index');
-    }
-
-    /**
-     * Elimina un producto por su identificador.
-     *
-     * @return void
-     */
-    public function destroy(): void
-    {
-        $id = $_GET['id'] ?? null;
-        if ($id && $this->productoModel->eliminarPorId($id)) {
-            $_SESSION['success'] = 'Producto eliminado.';
-        } else {
-            $_SESSION['error'] = 'No se pudo eliminar el producto.';
-        }
-
-        $this->redirect('index.php?controller=Producto&action=index');
-    }
+    $_SESSION['info'] = 'La funcionalidad de solicitudes estará disponible próximamente.';
+    $this->redirect('?controller=Producto&action=productosDisponibles');
+}
 
     /**
      * Permite al administrador agregar un nuevo producto base al catalogo.
      */
     public function storeCatalogItem(): void
     {
+        if (!isset($_SESSION['user']) || $_SESSION['user']['rol'] !== 'admin') {
+            $_SESSION['error'] = 'Acceso no autorizado.';
+            $this->redirect('?controller=Home&action=index');
+            return;
+        }
+
         if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
             $this->redirect('index.php?controller=Producto&action=catalogo');
         }
@@ -504,16 +379,10 @@ class ProductoController extends Controller
             $errores[] = 'Debes seleccionar una unidad.';
         }
 
-        $existentes = $this->productoModel->obtenerNombresDisponibles();
-        $toLower = static function (string $value): string {
-            return function_exists('mb_strtolower') ? mb_strtolower($value, 'UTF-8') : strtolower($value);
-        };
-        $lowerNombre = $toLower($nombre);
-        foreach ($existentes as $existente) {
-            if ($toLower($existente) === $lowerNombre) {
-                $errores[] = 'Ya existe un producto con ese nombre en el catalogo.';
-                break;
-            }
+        // Verificar si ya existe en el catálogo usando el modelo Catalogo
+        $productoExistente = $this->catalogoModel->buscarPorNombre($nombre);
+        if ($productoExistente !== null) {
+            $errores[] = 'Ya existe un producto con ese nombre en el catalogo.';
         }
 
         $categoriasMap = $this->getCategoriasMap();
@@ -537,16 +406,19 @@ class ProductoController extends Controller
             $this->redirect('index.php?controller=Producto&action=catalogo');
         }
 
+        $unidadRepo = new Unidad();
+        $unidadRow = $unidadRepo->buscarPorAbreviatura($unidad);
+        if ($unidadRow === null) {
+            $_SESSION['error'] = 'La unidad seleccionada no existe.';
+            $this->redirect('index.php?controller=Producto&action=catalogo');
+        }
+
         try {
-            $this->productoModel->crear(
+            $this->catalogoModel->crear(
                 $nombre,
-                $unidad,
-                null,
-                null,
-                $comentarios === '' ? null : $comentarios,
-                'DISPONIBLE',
                 $categoriaId,
-                $categoriaNombre
+                (int)$unidadRow['id'],
+                $comentarios === '' ? null : $comentarios
             );
             $_SESSION['success'] = 'Producto agregado al catalogo.';
         } catch (\Throwable $exception) {
@@ -556,185 +428,18 @@ class ProductoController extends Controller
         $this->redirect('index.php?controller=Producto&action=catalogo');
     }
 
-    // Normaliza y valida los datos de un producto. lo movimos de adminController hasta aca
-    private function normalizeProducto(array $producto): array
-    {
-        $id = (string)($producto['id_producto'] ?? '');
-        $nombre = trim((string)($producto['nom_producto'] ?? ''));
-        $categoria = trim((string)($producto['categoria'] ?? ''));
-        $unidad = trim((string)($producto['unidad'] ?? ''));
-        $estadoRaw = trim((string)($producto['estado'] ?? ''));
-        $estado = $estadoRaw === '' ? 'SIN_ESTADO' : strtoupper($estadoRaw);
-        $cantidad = null;
-
-        if (isset($producto['cantidad']) && $producto['cantidad'] !== '') {
-            $cantidadValor = $producto['cantidad'];
-            if (is_numeric($cantidadValor)) {
-                $cantidad = (int)$cantidadValor;
-            }
-        }
-        // Procesar fecha de vencimiento 
-        $fechaRaw = trim((string)($producto['fecha_vencimiento'] ?? ''));
-        $fecha = $this->parseDate($fechaRaw);
-
-        return [
-            'id' => $id,
-            'nombre' => $nombre,
-            'categoria' => $categoria,
-            'unidad' => $unidad,
-            'cantidad' => $cantidad,
-            'estado' => $estado,
-            'estado_label' => $estadoRaw !== '' ? $estadoRaw : 'Sin estado',
-            'comentarios' => trim((string)($producto['comentarios'] ?? '')),
-            'fecha_vencimiento' => $fecha,
-            'fecha_vencimiento_raw' => $fechaRaw,
-            'fecha_vencimiento_label' => $fecha instanceof \DateTimeImmutable ? $fecha->format('d/m/Y') : 'Sin fecha',
-            'fecha_vencimiento_sort' => $fecha instanceof \DateTimeImmutable ? $fecha->format('Y-m-d') : '',
-        ];
-    }
-
-    private function filterLowStock(array $productos): array
-    {
-        $filtrados = array_filter(
-            $productos,
-            static function (array $producto): bool {
-                $cantidad = $producto['cantidad'] ?? null;
-                return $cantidad !== null && $cantidad <= 5;
-            }
-        );
-
-        usort(
-            $filtrados,
-            static function (array $a, array $b): int {
-                $cantidadA = $a['cantidad'] ?? PHP_INT_MAX;
-                $cantidadB = $b['cantidad'] ?? PHP_INT_MAX;
-
-                if ($cantidadA === $cantidadB) {
-                    return strcmp($a['nombre'] ?? '', $b['nombre'] ?? '');
-                }
-
-                return $cantidadA <=> $cantidadB;
-            }
-        );
-
-        return $filtrados;
-    }
-
     /**
-     * Selecciona los productos que vencen en los proximos siete dias.
+     * Obtiene un mapa de categorías (id => nombre).
      *
-     * @param array<int,array<string,mixed>> $productos Coleccion normalizada.
-     * @return array<int,array<string,mixed>> Productos con fecha proxima.
+     * @return array<int,string>
      */
-    private function filterExpiring(array $productos): array
+    private function getCategoriasMap(): array
     {
-        $today = new \DateTimeImmutable('today');
-        $limit = $today->modify('+7 days');
-
-        $filtrados = array_filter(
-            $productos,
-            static function (array $producto) use ($today, $limit): bool {
-                $fecha = $producto['fecha_vencimiento'] ?? null;
-
-                if (!$fecha instanceof \DateTimeImmutable) {
-                    return false;
-                }
-
-                if ($fecha < $today) {
-                    return false;
-                }
-
-                return $fecha <= $limit;
-            }
-        );
-
-        usort(
-            $filtrados,
-            static function (array $a, array $b): int {
-                $fechaA = $a['fecha_vencimiento'] ?? null;
-                $fechaB = $b['fecha_vencimiento'] ?? null;
-
-                if ($fechaA instanceof \DateTimeImmutable && $fechaB instanceof \DateTimeImmutable) {
-                    return $fechaA <=> $fechaB;
-                }
-
-                return strcmp($a['nombre'] ?? '', $b['nombre'] ?? '');
-            }
-        );
-
-        return $filtrados;
-    }
-
-    /**
-     * Convierte distintos formatos de fecha en una etiqueta amigable.
-     *
-     * @param mixed $fechaRaw Valor almacenado en la base.
-     */
-    private function formatExpirationLabel($fechaRaw): string
-    {
-        if ($fechaRaw === null || $fechaRaw === '') {
-            return 'Sin fecha';
+        $categorias = $this->categoriaModel->todas();
+        $map = [];
+        foreach ($categorias as $cat) {
+            $map[$cat['id']] = $cat['nombre'];
         }
-
-        if ($fechaRaw instanceof \DateTimeInterface) {
-            return $fechaRaw->format('d/m/Y');
-        }
-
-        $cadena = (string)$fechaRaw;
-        $formatos = ['Y-m-d', 'd/m/Y', 'Y/m/d'];
-
-        foreach ($formatos as $formato) {
-            $fecha = \DateTimeImmutable::createFromFormat($formato, $cadena);
-            if ($fecha instanceof \DateTimeImmutable) {
-                return $fecha->format('d/m/Y');
-            }
-        }
-
-        try {
-            $fecha = new \DateTimeImmutable($cadena);
-            return $fecha->format('d/m/Y');
-        } catch (\Throwable $exception) {
-            return $cadena;
-        }
+        return $map;
     }
-
-    /**
-     * Genera una distancia ficticia en kilometros para mostrar en la vista.
-     */
-    private function generateDistanceLabel(int $index): string
-    {
-        $base = 0.8;
-        $incremento = 0.6;
-        $distancia = $base + ($index % 7) * $incremento;
-
-        return number_format($distancia, 1, '.', '') . ' km';
-    }
-    /**
- * Convierte una fecha en formato string a DateTimeImmutable
- *
- * @param string $fechaRaw Fecha en formato string
- * @return \DateTimeImmutable|null Fecha convertida o null
- */
-private function parseDate(string $fechaRaw): ?\DateTimeImmutable
-{
-    if ($fechaRaw === '') {
-        return null;
-    }
-
-    $formatos = ['Y-m-d', 'd/m/Y', 'Y/m/d', 'd-m-Y'];
-
-    foreach ($formatos as $formato) {
-        $fecha = \DateTimeImmutable::createFromFormat($formato, $fechaRaw);
-        if ($fecha !== false) {
-            return $fecha;
-        }
-    }
-
-    try {
-        return new \DateTimeImmutable($fechaRaw);
-    } catch (\Throwable $exception) {
-        return null;
-    }
-}
-
 }

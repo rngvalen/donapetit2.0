@@ -50,11 +50,12 @@ class Estadistica extends Model {
      * @return array
      */
     public function encontrarPorDonacion($idDonacion): array {
+        self::initDb();
         $stmt = self::$db->prepare(
             "SELECT * FROM {$this->table} WHERE id_donacion = ?"
         );
         $stmt->execute([$idDonacion]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
     }
 
     /**
