@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --brand-color: #0f1629;
+    --brand-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+    --brand-font-sans: "Inter", "system-ui", sans-serif;
+  }
+
+  [data-theme="auth"] {
+    --brand-color: #3d538f;
+    --brand-shadow: 0 20px 60px rgba(15, 22, 41, 0.12);
+    --brand-font-sans: "Montserrat", "Inter", "system-ui", sans-serif;
+  }
+}
+
+@theme {
+  --color-brand: var(--brand-color);
+  --shadow-soft: var(--brand-shadow);
+  --font-sans: var(--brand-font-sans);
+}

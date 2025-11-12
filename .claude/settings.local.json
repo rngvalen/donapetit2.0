@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(composer init:*)",
+      "Bash(php composer.phar:*)",
+      "Bash(php -r \"copy(''https://getcomposer.org/installer'', ''composer-setup.php'');\")",
+      "Bash(php composer-setup.php:*)",
+      "Bash(php -r:*)",
+      "Bash(php check_tables.php:*)",
+      "Bash(php check_table_structure.php:*)",
+      "Bash(php:*)",
+      "Bash(del check_table_structure.php check_tables.php test_confirmar_retiro.php show_tables.php check_catalogo.php test_simple.php 2)",
+      "Bash(nul)",
+      "Bash(del \"c:\\xampp\\htdocs\\donapetit3-main\\check_table_structure.php\" \"c:\\xampp\\htdocs\\donapetit3-main\\check_tables.php\" \"c:\\xampp\\htdocs\\donapetit3-main\\test_confirmar_retiro.php\" \"c:\\xampp\\htdocs\\donapetit3-main\\show_tables.php\" \"c:\\xampp\\htdocs\\donapetit3-main\\check_catalogo.php\" \"c:\\xampp\\htdocs\\donapetit3-main\\test_simple.php\" 2)",
+      "Bash(find:*)",
+      "Bash(git rm:*)",
+      "Bash(del nul)",
+      "Bash(rm:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

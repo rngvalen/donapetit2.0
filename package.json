@@ -1,0 +1,29 @@
+{
+  "name": "donapetit2.0",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+  "dev": "tailwindcss -i ./assets/input.css -o ./public/assets/css/tailwind.css --watch",
+  "build": "tailwindcss -i ./assets/input.css -o ./public/assets/css/tailwind.css --minify"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rngvalen/donapetit2.0.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/rngvalen/donapetit2.0/issues"
+  },
+  "homepage": "https://github.com/rngvalen/donapetit2.0#readme",
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.1.16",
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.16"
+  }
+  
+}
